@@ -1,10 +1,10 @@
-HTML5 Arcade: The Hand-Coded Portfolio
+# HTML5 Arcade: The Hand-Coded Portfolio
 
 This repository stands as a curated archive of my early exploration into interactive software. Developed years ago, these projects represent the genesis of my coding journey—a time dedicated to mastering foundational logic, physics engines, and complex UI systems from scratch.
 
 While my professional focus has since moved away from video game development, this collection remains a vital chapter of my portfolio. It documents a period of intense experimentation where every line of code was written manually, without the assistance of AI, to ensure absolute mastery over the underlying software architecture.
 
-🏛️ Simulation & Strategy
+# Simulation & Strategy
 
 Terra-Tech OS & Frontier OS
 
@@ -18,7 +18,7 @@ The Rules: A turn-based tactical conquest game played on a hexagonal grid. Deplo
 
 Mechanics: Hex-based movement, tech-tree progression, and territory control logic.
 
-🔺 3D Immersion (Three.js)
+# 3D Immersion (Three.js)
 
 Meteorite Travel
 
@@ -38,7 +38,7 @@ The Rules: Navigate dangerous zones, such as tunnels or busy highways, without b
 
 Mechanics: Timing-based movement, velocity management, and camera stabilization.
 
-👾 2D Action & Physics (Canvas API)
+# 2D Action & Physics (Canvas API)
 
 Fox Platformer: The Final Quest
 
@@ -58,7 +58,7 @@ The Rules: Pure reflex challenges. In Avoidance, survive for 20 seconds as the p
 
 Mechanics: Dynamic role-reversal logic, collision timers, and reaction speed testing.
 
-🛠️ Logic, Chance & Culture
+# Logic, Chance & Culture
 
 Interactive Games on Newton's Laws
 
