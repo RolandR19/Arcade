@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ETHIX-GENESIS — Frontier OS</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;500;700&family=Share+Tech+Mono&display=swap');
+
+  :root {
+    --amber: #D4891A;
+    --amber-glow: rgba(212,137,26,0.4);
+    --emerald: #2A7A4F;
+    --emerald-light: #3FBF78;
+    --slate: #0D1A12;
+    --glass: rgba(13, 26, 18, 0.85);
+    --border: rgba(212, 137, 26, 0.3);
+    --text: #E8DCC8;
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    background: #050d08;
+    color: var(--text);
+    font-family: 'Rajdhani', sans-serif;
+    overflow: hidden;
+    height: 100vh;
+    background-image: radial-gradient(circle at 50% 50%, #102a1a 0%, #050d08 100%);
+  }
+
+  /* --- UI LAYOUT --- */
+  #os-container {
+    display: grid;
+    grid-template-rows: 60px 1fr 60px;
+    grid-template-columns: 280px 1fr 300px;
+    height: 100vh;
+    position: relative;
+    z-index: 10;
+  }
+
+  /* --- TOPBAR --- */
+  header {
+    grid-column: 1/-1;
+    background: rgba(0,0,0,0.8);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px;
+    backdrop-filter: blur(10px);
+  }
+
+  .logo {
+    font-family: 'Orbitron', sans-serif;
+    letter-spacing: 4px;
+    font-weight: 900;
+    background: linear-gradient(90deg, var(--amber), var(--emerald-light));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .res-bar {
+    display: flex;
+    gap: 15px;
+  }
+
+  .res-item {
+    background: rgba(255,255,255,0.05);
+    padding: 5px 12px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 13px;
+  }
+
+  /* --- LEFT: COLONY STATUS --- */
+  #left-panel {
+    background: var(--glass);
+    border-right: 1px solid var(--border);
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .panel-label {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 10px;
+    color: var(--amber);
+    letter-spacing: 2px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 5px;
+  }
+
+  .terra-stats {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .progress-wrap { font-size: 12px; }
+  .bar-bg { height: 6px; background: #1a2e22; border-radius: 3px; margin-top: 5px; overflow: hidden; }
+  .bar-fill { height: 100%; transition: width 1s; }
+
+  /* --- CENTER: HEX MAP --- */
+  #map-view {
+    position: relative;
+    background: radial-gradient(circle, #0d2b1a 0%, #050d08 100%);
+    overflow: hidden;
+  }
+
+  #hex-canvas { width: 100%; height: 100%; }
+
+  .map-overlay-hud {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--glass);
+    padding: 10px 25px;
+    border: 1px solid var(--emerald-light);
+    border-radius: 30px;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 12px;
+    color: var(--emerald-light);
+    box-shadow: 0 0 15px rgba(63,191,120,0.2);
+  }
+
+  /* --- RIGHT: GRIMOIRE & TECH --- */
+  #right-panel {
+    background: var(--glass);
+    border-left: 1px solid var(--border);
+    padding: 20px;
+    overflow-y: auto;
+  }
+
+  .card {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--border);
+    padding: 12px;
+    border-radius: 8px;
+    margin-bottom: 10px;
+    cursor: pointer;
+    transition: 0.3s;
+  }
+
+  .card:hover { background: rgba(212,137,26,0.1); border-color: var(--amber); }
+
+  .card-title { font-weight: bold; font-size: 14px; margin-bottom: 5px; display: flex; justify-content: space-between; }
+  .card-desc { font-size: 11px; color: #aaa; line-height: 1.4; }
+
+  /* --- BOTTOM BAR --- */
+  footer {
+    grid-column: 1/-1;
+    background: #000;
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+    gap: 20px;
+  }
+
+  .btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 8px 15px;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 10px;
+    cursor: pointer;
+    transition: 0.3s;
+  }
+
+  .btn:hover { background: var(--amber); color: #000; }
+  .btn.active { border-color: var(--emerald-light); color: var(--emerald-light); }
+
+  /* --- EFFECTS --- */
+  .scanline {
+    position: fixed; inset: 0;
+    background: linear-gradient(to bottom, transparent 50%, rgba(0,0,0,0.1) 50%);
+    background-size: 100% 4px;
+    pointer-events: none;
+    z-index: 100;
+  }
+</style>
+</head>
+<body>
+
+<div class="scanline"></div>
+
+<div id="os-container">
+  
+  <header>
+    <div class="logo">ETHIX-GENESIS <span style="font-size:9px; opacity:0.6;">v8.0 — FRONTIER ADAPTATION</span></div>
+    <div class="res-bar">
+      <div class="res-item">⚡ <span id="val-energy">450</span></div>
+      <div class="res-item">🧬 <span id="val-bio">1,240</span></div>
+      <div class="res-item">💎 <span id="val-credits">890</span></div>
+    </div>
+  </header>
+
+  <aside id="left-panel">
+    <div class="panel-label">⬡ ÉTAT DE LA TERRAFORMATION</div>
+    <div class="terra-stats">
+      <div class="progress-wrap">
+        Humidité du Sol: 68%
+        <div class="bar-bg"><div class="bar-fill" style="width:68%; background: var(--emerald-light);"></div></div>
+      </div>
+      <div class="progress-wrap">
+        Niveau d'Oxygène: 14%
+        <div class="bar-bg"><div class="bar-fill" style="width:14%; background: var(--amber);"></div></div>
+      </div>
+      <div class="progress-wrap">
+        Biomasse Stable: 42%
+        <div class="bar-bg"><div class="bar-fill" style="width:42%; background: #7BBDE8;"></div></div>
+      </div>
+    </div>
+
+    <div class="panel-label" style="margin-top:20px;">⬡ UNITÉS DE DÉFENSE</div>
+    <div class="card">
+      <div class="card-title">🚁 Drone Essaim X-1 <span>NV.4</span></div>
+      <div class="card-desc">Patrouille sur les secteurs fertiles. Autonomie : 88%.</div>
+    </div>
+    <div class="card">
+      <div class="card-title">🤖 Moissonneur IA <span>NV.2</span></div>
+      <div class="card-desc">Extraction de bio-masse auto. Secteur : Nord-Est.</div>
+    </div>
+  </aside>
+
+  <main id="map-view">
+    <canvas id="hex-canvas"></canvas>
+    <div class="map-overlay-hud">SYSTÈME DE NAVIGATION : KEPLER-7B — SECTEUR AGRICOLE</div>
+  </main>
+
+  <aside id="right-panel">
+    <div class="panel-label">⬡ GRIMOIRE DES PROTOCOLES</div>
+    <div class="card" onclick="alert('Protocole activé : Croissance accélérée')">
+      <div class="card-title">🌱 Semence Bio-Design</div>
+      <div class="card-desc">Edition génomique CRISPR pour résistance au froid. +20% rendement.</div>
+    </div>
+    <div class="card">
+      <div class="card-title">🧪 Engrais Moléculaire</div>
+      <div class="card-desc">Inoculation fongique pour sols acides. Restaure le biome en 3 cycles.</div>
+    </div>
+    
+    <div class="panel-label" style="margin-top:20px;">⬡ ARBRE TECH</div>
+    <div class="card" style="border-left: 3px solid var(--emerald-light);">
+      <div class="card-title">🧬 Synthèse de Chlorophylle</div>
+      <div class="card-desc">Débloque la culture en dôme pressurisé. [ACQUIS]</div>
+    </div>
+    <div class="card" style="opacity: 0.5;">
+      <div class="card-title">🛰️ Contrôle Orbital</div>
+      <div class="card-desc">Miroirs solaires pour nuits artificielles. [1500 SCIENCE]</div>
+    </div>
+  </aside>
+
+  <footer>
+    <button class="btn active">VUE TACTIQUE</button>
+    <button class="btn">INVENTAIRE</button>
+    <button class="btn">ACADÉMIE</button>
+    <button class="btn" style="margin-left:auto; border-color: var(--amber); color: var(--amber);">FIN DU TOUR</button>
+  </footer>
+
+</div>
+
+<script>
+  const canvas = document.getElementById('hex-canvas');
+  const ctx = canvas.getContext('2d');
+  let w, h;
+
+  function resize() {
+    w = canvas.width = canvas.parentElement.offsetWidth;
+    h = canvas.height = canvas.parentElement.offsetHeight;
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  const hexSize = 35;
+  const rows = 10;
+  const cols = 12;
+
+  function drawHex(x, y, color, border, label) {
+    ctx.beginPath();
+    for (let i = 0; i < 6; i++) {
+      const angle = (Math.PI / 3) * i;
+      const px = x + hexSize * Math.cos(angle);
+      const py = y + hexSize * Math.sin(angle);
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.strokeStyle = border;
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    if(label) {
+        ctx.fillStyle = "rgba(255,255,255,0.2)";
+        ctx.font = "10px Share Tech Mono";
+        ctx.textAlign = "center";
+        ctx.fillText(label, x, y + 5);
+    }
+  }
+
+  function animate() {
+    ctx.clearRect(0, 0, w, h);
+    const time = Date.now() * 0.001;
+
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const x = c * hexSize * 1.5 + 60;
+        const y = r * hexSize * 1.73 + (c % 2) * (hexSize * 1.73 / 2) + 50;
+        
+        // Dynamic colors based on "fertility"
+        let noise = Math.sin(c * 0.5 + time * 0.5) * Math.cos(r * 0.5);
+        let color = "#0d1a12";
+        let border = "rgba(212, 137, 26, 0.1)";
+
+        if (noise > 0.4) {
+            color = "rgba(63, 191, 120, 0.15)";
+            border = "rgba(63, 191, 120, 0.4)";
+        } else if (c === 5 && r === 4) {
+            color = "rgba(212, 137, 26, 0.2)";
+            border = "var(--amber)";
+        }
+
+        drawHex(x, y, color, border, noise > 0.6 ? "🌿" : null);
+      }
+    }
+
+    // Draw some "drones"
+    const dx = w/2 + Math.cos(time) * 100;
+    const dy = h/2 + Math.sin(time*0.5) * 50;
+    ctx.fillStyle = "var(--amber)";
+    ctx.shadowBlur = 10;
+    ctx.shadowColor = "var(--amber)";
+    ctx.beginPath();
+    ctx.arc(dx, dy, 3, 0, Math.PI*2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+
+    requestAnimationFrame(animate);
+  }
+
+  animate();
+</script>
+</body>
+</html>

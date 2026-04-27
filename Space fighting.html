@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jeu 2D de la Vérité</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Inter', sans-serif;
+            background-color: #00001a;
+            color: #E0E0E0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            height: 100vh;
+            background: linear-gradient(to bottom, #000000, #000022);
+            position: relative;
+        }
+
+        body::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 100 100"><g stroke="%23E0E0E0" fill="none"><circle cx="10" cy="10" r="0.5" /><circle cx="30" cy="50" r="0.5" /><circle cx="80" cy="20" r="0.5" /><circle cx="60" cy="90" r="0.5" /><circle cx="20" cy="70" r="0.5" /><circle cx="70" cy="40" r="0.5" /></g></svg>');
+            background-size: 50px 50px;
+            opacity: 0.8;
+            animation: moveStars 200s linear infinite;
+        }
+        
+        @keyframes moveStars {
+            from {
+                background-position: 0 0;
+            }
+            to {
+                background-position: 100% 100%;
+            }
+        }
+
+        canvas {
+            display: block;
+            border: 2px solid #555;
+            background-color: #111;
+        }
+
+        #message-box {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 20px;
+            border-radius: 10px;
+            border: 2px solid #333;
+            text-align: center;
+            opacity: 1;
+            transition: opacity 0.5s ease-in-out;
+            font-size: 1.2rem;
+            z-index: 100;
+        }
+        
+        #instructions {
+            margin-top: 10px;
+            font-size: 0.9rem;
+            color: #B0B0B0;
+        }
+
+        #timer-container, #distance-container {
+            position: absolute;
+            top: 10px;
+            padding: 10px 15px;
+            background-color: rgba(0, 0, 0, 0.7);
+            border-radius: 8px;
+            border: 1px solid #555;
+            font-size: 1rem;
+            display: none;
+            z-index: 50;
+        }
+
+        #timer-container {
+            left: 10px;
+        }
+
+        #distance-container {
+            right: 10px;
+        }
+
+        #restart-button, #start-button {
+            position: absolute;
+            top: 60%;
+            padding: 10px 20px;
+            font-size: 1.1rem;
+            color: #E0E0E0;
+            background-color: #333;
+            border: 2px solid #666;
+            border-radius: 8px;
+            cursor: pointer;
+            opacity: 1;
+            visibility: visible;
+            transition: opacity 0.5s ease-in-out;
+            z-index: 100;
+        }
+        #restart-button:hover, #start-button:hover {
+            background-color: #555;
+        }
+
+        #chat-container {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 300px;
+            max-height: 400px;
+            background-color: rgba(0, 0, 0, 0.85);
+            border: 1px solid #444;
+            border-radius: 10px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            z-index: 200;
+        }
+        #chat-log {
+            flex-grow: 1;
+            padding: 10px;
+            overflow-y: auto;
+            border-bottom: 1px solid #444;
+            display: flex;
+            flex-direction: column-reverse;
+            color: #E0E0E0;
+        }
+        .chat-message {
+            margin-bottom: 5px;
+        }
+        .user-message {
+            text-align: right;
+            color: #90CAF9;
+        }
+        .ai-message {
+            text-align: left;
+            color: #A5D6A7;
+        }
+        #chat-input-container {
+            display: flex;
+            padding: 10px;
+            gap: 5px;
+        }
+        #chat-input {
+            flex-grow: 1;
+            padding: 5px;
+            border-radius: 5px;
+            border: 1px solid #666;
+            background-color: #222;
+            color: #E0E0E0;
+        }
+        #chat-send-button {
+            padding: 5px 10px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        #chat-send-button:hover {
+            background-color: #45a049;
+        }
+
+    </style>
+</head>
+<body>
+    <div id="start-screen" style="position:absolute; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:250; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;">
+        <h1 style="font-size: 2.5rem; margin-bottom: 20px;">Jeu 2D de la Vérité</h1>
+        <div style="font-size: 1.2rem; max-width: 600px; margin-bottom: 30px;">
+            <p><strong>Votre mission :</strong> Trouver l'alien sage caché dans le labyrinthe pour découvrir la vérité.</p>
+            <p><strong>Contrôles :</strong></p>
+            <ul>
+                <li>Flèches directionnelles : Avancer et tourner</li>
+                <li>Souris : Regarder autour de vous</li>
+                <li>Touche 'A' : Tirer des missiles pour éliminer les aliens hostiles (👾)</li>
+            </ul>
+        </div>
+        <button id="start-button">Commencer la partie</button>
+    </div>
+
+    <div id="message-box" style="display:none;">
+        <div id="message"></div>
+        <div id="instructions"></div>
+    </div>
+    <div id="timer-container">
+        Temps : <span id="timer-value">0.00</span> s
+    </div>
+    <div id="distance-container">
+        Distance à l'IA : <span id="distance-value">0.00</span> m
+    </div>
+    <button id="restart-button" style="display:none;">Recommencer</button>
+    <canvas id="gameCanvas"></canvas>
+
+    <div id="chat-container">
+        <div id="chat-log"></div>
+        <div id="chat-input-container">
+            <input type="text" id="chat-input" placeholder="Parlez au chatbot...">
+            <button id="chat-send-button">Envoyer</button>
+        </div>
+    </div>
+    
+    <script>
+        (function() {
+            const canvas = document.getElementById('gameCanvas');
+            const ctx = canvas.getContext('2d');
+
+            const player = {
+                x: 0,
+                y: 0,
+                radius: 10,
+                speed: 2,
+                direction: 0, // En radians
+                isJumping: false,
+                emoji: '👨‍🚀'
+            };
+
+            const characters = [];
+            const missiles = [];
+            const NUM_CHARACTERS = 20;
+            let isDead = false;
+            let keyboard = {};
+            let startTime = null;
+            let sageAlien = null;
+            let lastMissileTime = 0;
+            const missileCooldown = 250; // en ms
+
+            const startScreen = document.getElementById('start-screen');
+            const startButton = document.getElementById('start-button');
+            const messageBox = document.getElementById('message-box');
+            const messageText = document.getElementById('message');
+            const instructionsText = document.getElementById('instructions');
+            const timerContainer = document.getElementById('timer-container');
+            const distanceContainer = document.getElementById('distance-container');
+            const timerElement = document.getElementById('timer-value');
+            const distanceElement = document.getElementById('distance-value');
+            const restartButton = document.getElementById('restart-button');
+            const chatLog = document.getElementById('chat-log');
+            const chatInput = document.getElementById('chat-input');
+            const chatSendButton = document.getElementById('chat-send-button');
+
+            const MAZE_SIZE = 15;
+            const CELL_SIZE = 30;
+            let maze = [];
+            let mazeWalls = [];
+
+            function resizeCanvas() {
+                canvas.width = MAZE_SIZE * CELL_SIZE;
+                canvas.height = MAZE_SIZE * CELL_SIZE;
+                player.x = CELL_SIZE + CELL_SIZE / 2;
+                player.y = CELL_SIZE + CELL_SIZE / 2;
+            }
+            window.addEventListener('resize', resizeCanvas);
+            resizeCanvas();
+
+            // Labyrinthe aléatoire (génération par Recursive Backtracking)
+            function generateMaze() {
+                maze = [];
+                for (let i = 0; i < MAZE_SIZE; i++) {
+                    maze[i] = [];
+                    for (let j = 0; j < MAZE_SIZE; j++) {
+                        maze[i][j] = 'wall';
+                    }
+                }
+
+                function carvePath(cx, cy) {
+                    const directions = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+                    directions.sort(() => Math.random() - 0.5);
+
+                    for (const [dx, dy] of directions) {
+                        const nx = cx + dx * 2;
+                        const ny = cy + dy * 2;
+
+                        if (nx >= 0 && nx < MAZE_SIZE && ny >= 0 && ny < MAZE_SIZE && maze[ny][nx] === 'wall') {
+                            maze[cy + dy][cx + dx] = 'path';
+                            maze[ny][nx] = 'path';
+                            carvePath(nx, ny);
+                        }
+                    }
+                }
+                maze[1][1] = 'path';
+                carvePath(1, 1);
+
+                // Build a list of wall rectangles for collision detection
+                mazeWalls = [];
+                for(let y = 0; y < MAZE_SIZE; y++) {
+                    for(let x = 0; x < MAZE_SIZE; x++) {
+                        if (maze[y][x] === 'wall') {
+                            mazeWalls.push({
+                                x: x * CELL_SIZE,
+                                y: y * CELL_SIZE,
+                                width: CELL_SIZE,
+                                height: CELL_SIZE
+                            });
+                        }
+                    }
+                }
+            }
+            
+            function initCharacters() {
+                characters.length = 0;
+                let validSpawnPoints = [];
+                for(let y = 0; y < MAZE_SIZE; y++) {
+                    for(let x = 0; x < MAZE_SIZE; x++) {
+                        if (maze[y][x] === 'path') {
+                            validSpawnPoints.push({ x: x, y: y });
+                        }
+                    }
+                }
+
+                for (let i = 0; i < NUM_CHARACTERS; i++) {
+                    const spawn = validSpawnPoints[Math.floor(Math.random() * validSpawnPoints.length)];
+                    characters.push({
+                        x: spawn.x * CELL_SIZE + CELL_SIZE / 2,
+                        y: spawn.y * CELL_SIZE + CELL_SIZE / 2,
+                        size: 20,
+                        speed: Math.random() * 0.5 + 0.5,
+                        emoji: '👾'
+                    });
+                }
+                
+                // Positionner l'alien sage
+                const sageSpawn = validSpawnPoints[Math.floor(Math.random() * validSpawnPoints.length)];
+                sageAlien = {
+                    x: sageSpawn.x * CELL_SIZE + CELL_SIZE / 2,
+                    y: sageSpawn.y * CELL_SIZE + CELL_SIZE / 2,
+                    size: 20,
+                    emoji: '👽'
+                };
+            }
+
+            function draw() {
+                ctx.fillStyle = '#111';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                // Draw maze walls
+                ctx.fillStyle = '#444';
+                mazeWalls.forEach(wall => {
+                    ctx.fillRect(wall.x, wall.y, wall.width, wall.height);
+                });
+
+                // Dessiner le personnage joueur
+                ctx.font = `${player.radius * 2}px serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.save();
+                ctx.translate(player.x, player.y);
+                ctx.rotate(player.direction + Math.PI / 2); // Rotate to face direction
+                ctx.fillText(player.emoji, 0, 0);
+                ctx.restore();
+
+                // Dessiner les personnages ennemis
+                ctx.font = `20px serif`;
+                characters.forEach(char => {
+                    ctx.fillText(char.emoji, char.x, char.y);
+                });
+                
+                // Dessiner l'alien sage
+                ctx.font = `20px serif`;
+                ctx.fillText(sageAlien.emoji, sageAlien.x, sageAlien.y);
+
+                // Dessiner les missiles
+                ctx.fillStyle = 'red';
+                missiles.forEach(missile => {
+                    ctx.beginPath();
+                    ctx.arc(missile.x, missile.y, missile.size, 0, Math.PI * 2);
+                    ctx.fill();
+                });
+            }
+
+            function checkCollision(rect1, rect2) {
+                return rect1.x < rect2.x + rect2.width &&
+                       rect1.x + rect1.width > rect2.x &&
+                       rect1.y < rect2.y + rect2.height &&
+                       rect1.y + rect1.height > rect2.y;
+            }
+
+            function update() {
+                if (isDead) {
+                    return;
+                }
+
+                // Player movement with arrow keys
+                let dx = 0;
+                let dy = 0;
+                if (keyboard['arrowup']) {
+                    dx = Math.cos(player.direction) * player.speed;
+                    dy = Math.sin(player.direction) * player.speed;
+                }
+                
+                if (keyboard['arrowleft']) {
+                    player.direction -= 0.05;
+                }
+                if (keyboard['arrowright']) {
+                    player.direction += 0.05;
+                }
+                
+                const newPlayerRect = {
+                    x: player.x + dx - player.radius,
+                    y: player.y + dy - player.radius,
+                    width: player.radius * 2,
+                    height: player.radius * 2
+                };
+
+                let collision = false;
+                for (const wall of mazeWalls) {
+                    if (checkCollision(newPlayerRect, wall)) {
+                        collision = true;
+                        break;
+                    }
+                }
+
+                if (!collision) {
+                    player.x += dx;
+                    player.y += dy;
+                }
+
+                // Keep player within canvas bounds
+                player.x = Math.max(player.radius, Math.min(canvas.width - player.radius, player.x));
+                player.y = Math.max(player.radius, Math.min(canvas.height - player.radius, player.y));
+                
+                // Enemies AI and collision detection
+                let closestCharDistance = Infinity;
+                characters.forEach(char => {
+                    // Move character towards player slowly, avoiding walls
+                    const angle = Math.atan2(player.y - char.y, player.x - char.x);
+                    let moveX = Math.cos(angle) * char.speed;
+                    let moveY = Math.sin(angle) * char.speed;
+
+                    const newCharRect = {
+                        x: char.x + moveX - char.size / 2,
+                        y: char.y + moveY - char.size / 2,
+                        width: char.size,
+                        height: char.size
+                    };
+                    
+                    let wallCollision = false;
+                    for(const wall of mazeWalls) {
+                        if (checkCollision(newCharRect, wall)) {
+                            wallCollision = true;
+                            break;
+                        }
+                    }
+
+                    if (!wallCollision) {
+                        char.x += moveX;
+                        char.y += moveY;
+                    }
+
+                    // Collision detection with player
+                    const dist = Math.sqrt((player.x - char.x)**2 + (player.y - char.y)**2);
+                    if (dist < closestCharDistance) {
+                        closestCharDistance = dist;
+                    }
+
+                    if (dist < (player.radius + char.size / 2) && !player.isJumping) {
+                        isDead = true;
+                        const elapsedTime = ((Date.now() - startTime) / 1000).toFixed(2);
+                        messageText.innerText = `Partie terminée ! Vous avez été capturé. Vous avez survécu pendant ${elapsedTime} secondes.`;
+                        instructionsText.innerText = "Appuyez sur 'Espace' ou sur le bouton pour recommencer.";
+                        showMessageBox(true);
+                    }
+                });
+
+                // Collision with sage alien
+                const sageDist = Math.sqrt((player.x - sageAlien.x)**2 + (player.y - sageAlien.y)**2);
+                if (sageDist < (player.radius + sageAlien.size / 2)) {
+                    isDead = true;
+                    revealTruth();
+                }
+
+                // Mettre à jour les missiles et vérifier les collisions avec les ennemis
+                for (let i = missiles.length - 1; i >= 0; i--) {
+                    const missile = missiles[i];
+                    missile.x += Math.cos(missile.direction) * missile.speed;
+                    missile.y += Math.sin(missile.direction) * missile.speed;
+
+                    // Supprimer le missile s'il est hors de l'écran
+                    if (missile.x < 0 || missile.x > canvas.width || missile.y < 0 || missile.y > canvas.height) {
+                        missiles.splice(i, 1);
+                        continue;
+                    }
+
+                    // Collision avec les murs du labyrinthe
+                    const missileRect = {x: missile.x - missile.size, y: missile.y - missile.size, width: missile.size * 2, height: missile.size * 2};
+                    let wallCollision = false;
+                    for(const wall of mazeWalls) {
+                        if (checkCollision(missileRect, wall)) {
+                            missiles.splice(i, 1);
+                            wallCollision = true;
+                            break;
+                        }
+                    }
+                    if (wallCollision) continue;
+
+                    // Collision avec les ennemis
+                    for (let j = characters.length - 1; j >= 0; j--) {
+                        const character = characters[j];
+                        const dist = Math.sqrt((missile.x - character.x)**2 + (missile.y - character.y)**2);
+                        if (dist < (missile.size + character.size / 2)) {
+                            missiles.splice(i, 1);
+                            characters.splice(j, 1);
+                            break;
+                        }
+                    }
+                }
+
+
+                distanceElement.innerText = (closestCharDistance / 10).toFixed(2); // Échelle pour un meilleur affichage
+
+                // Update timer
+                const elapsedTime = (Date.now() - startTime) / 1000;
+                timerElement.innerText = elapsedTime.toFixed(2);
+                
+                draw();
+                requestAnimationFrame(update);
+            }
+
+            async function revealTruth() {
+                const prompt = `Agis en tant qu'un être ancien et sage. Donne une courte vérité ou une sagesse profonde et mystérieuse en une seule phrase.`;
+                const payload = {
+                    contents: [{ parts: [{ text: prompt }] }],
+                };
+
+        
+
+                try {
+                    let response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`API call failed with status: ${response.status}`);
+                    }
+
+                    const result = await response.json();
+                    const truth = result?.candidates?.[0]?.content?.parts?.[0]?.text || "La vérité est insaisissable pour l'instant.";
+                    messageText.innerText = `Félicitations ! Vous avez trouvé la vérité : "${truth}"`;
+                    instructionsText.innerText = "Appuyez sur 'Espace' ou sur le bouton pour recommencer.";
+                    showMessageBox(true);
+
+                } catch (error) {
+                    console.error('Erreur lors de la récupération de la vérité :', error);
+                    messageText.innerText = `La vérité est insaisissable pour l'instant.`;
+                    instructionsText.innerText = "Appuyez sur 'Espace' ou sur le bouton pour recommencer.";
+                    showMessageBox(true);
+                }
+            }
+            
+            function fireMissile() {
+                const currentTime = Date.now();
+                if (currentTime - lastMissileTime > missileCooldown) {
+                    missiles.push({
+                        x: player.x,
+                        y: player.y,
+                        direction: player.direction,
+                        speed: 5,
+                        size: 3
+                    });
+                    lastMissileTime = currentTime;
+                }
+            }
+
+            function showMessageBox(show) {
+                if (show) {
+                    messageBox.style.display = 'block';
+                    restartButton.style.display = 'block';
+                } else {
+                    messageBox.style.display = 'none';
+                    restartButton.style.display = 'none';
+                }
+            }
+            
+            function startGame() {
+                startScreen.style.display = 'none';
+                restartGame();
+            }
+
+            function restartGame() {
+                isDead = false;
+                missiles.length = 0;
+                generateMaze();
+                initCharacters();
+                
+                // Reposition player in a safe spot
+                player.x = CELL_SIZE + CELL_SIZE / 2;
+                player.y = CELL_SIZE + CELL_SIZE / 2;
+                player.direction = 0;
+                player.isJumping = false;
+                
+                startTime = Date.now();
+                showMessageBox(false);
+                timerContainer.style.display = 'block';
+                distanceContainer.style.display = 'block';
+                update();
+            }
+
+            // Keyboard controls
+            document.addEventListener('keydown', (event) => {
+                keyboard[event.key.toLowerCase()] = true;
+                if (event.key === ' ' && isDead) {
+                    restartGame();
+                }
+                if (event.key.toLowerCase() === 'a' && !isDead) {
+                    fireMissile();
+                }
+            });
+            document.addEventListener('keyup', (event) => {
+                keyboard[event.key.toLowerCase()] = false;
+            });
+
+            // Mouse controls
+            document.addEventListener('mousemove', (event) => {
+                if (document.pointerLockElement) {
+                    const movementX = event.movementX || 0;
+                    const sensitivity = 0.005;
+                    player.direction += movementX * sensitivity;
+                }
+            });
+
+            canvas.addEventListener('click', () => {
+                canvas.requestPointerLock();
+            });
+
+            document.addEventListener('pointerlockchange', () => {
+                if (document.pointerLockElement === canvas) {
+                    // Cacher l'écran d'accueil s'il est affiché, et les messages de fin de partie
+                    if (startScreen.style.display !== 'none') {
+                        startScreen.style.display = 'none';
+                        startGame();
+                    }
+                    showMessageBox(false);
+                } else {
+                    // Afficher les messages de fin de partie si la partie est terminée
+                    if (isDead) {
+                        showMessageBox(true);
+                    }
+                }
+            });
+
+            startButton.addEventListener('click', startGame);
+            restartButton.addEventListener('click', restartGame);
+
+            // Chatbot logic
+            async function getBotResponse(query) {
+                const prompt = `You are a helpful chatbot in a 2D survival game. The player is a space explorer (👨‍🚀) trying to escape alien creatures (👾) in a maze. The player can now shoot at the enemies. Your job is to give helpful tips, friendly encouragement, or advice on how to survive. Keep your answers short and simple. The player asked: "${query}". Respond in French.`;
+                const payload = {
+                    contents: [{ parts: [{ text: prompt }] }],
+                };
+
+               
+
+                try {
+                    let response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`API call failed with status: ${response.status}`);
+                    }
+
+                    const result = await response.json();
+                    return result?.candidates?.[0]?.content?.parts?.[0]?.text || "Désolé, je ne peux pas vous aider pour le moment.";
+                } catch (error) {
+                    console.error('Erreur lors de la récupération de la réponse du chatbot :', error);
+                    return "Désolé, je rencontre un problème de connexion.";
+                }
+            }
+
+            chatSendButton.addEventListener('click', () => {
+                const query = chatInput.value;
+                if (query.trim() === '') return;
+
+                const userMessage = document.createElement('div');
+                userMessage.className = 'chat-message user-message';
+                userMessage.innerText = query;
+                chatLog.prepend(userMessage);
+                chatInput.value = '';
+
+                const botMessage = document.createElement('div');
+                botMessage.className = 'chat-message ai-message';
+                botMessage.innerText = 'Le chatbot réfléchit...';
+                chatLog.prepend(botMessage);
+
+                getBotResponse(query).then(response => {
+                    botMessage.innerText = response;
+                }).catch(() => {
+                    botMessage.innerText = "Une erreur est survenue.";
+                });
+            });
+
+            chatInput.addEventListener('keypress', (event) => {
+                if (event.key === 'Enter') {
+                    chatSendButton.click();
+                }
+            });
+
+            // Initial game setup
+            window.onload = function() {
+                resizeCanvas();
+                startScreen.style.display = 'flex';
+                showMessageBox(false);
+            };
+
+        })();
+    </script>
+</body>
+</html>

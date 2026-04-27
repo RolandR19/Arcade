@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Skydive Escape</title>
+    <style>
+        body {
+            background-color: #0d1a26;
+            color: #fff;
+            font-family: 'Inter', sans-serif;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+            text-align: center;
+        }
+
+        canvas {
+            background-color: #112233;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+            margin: 20px 0;
+            touch-action: none; /* Prevents default touch behavior */
+        }
+
+        #game-info {
+            display: flex;
+            justify-content: space-between;
+            width: 80%;
+            max-width: 600px;
+            padding: 10px;
+            font-size: 1.5rem;
+            color: #00d4ff;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        #score-display, #high-score-display {
+            font-weight: bold;
+        }
+
+        #game-over-screen {
+            position: absolute;
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.7);
+            width: 100%;
+            height: 100%;
+            border-radius: 12px;
+        }
+
+        #game-over-screen h2 {
+            font-size: 3rem;
+            color: #ff4d4d;
+            margin-bottom: 10px;
+        }
+
+        #game-over-screen p {
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+        }
+
+        #start-button {
+            padding: 15px 30px;
+            font-size: 1.25rem;
+            font-weight: bold;
+            color: #fff;
+            background-color: #008cba;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0, 140, 186, 0.5);
+            transition: all 0.3s ease;
+        }
+
+        #start-button:hover {
+            background-color: #005f7c;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 140, 186, 0.6);
+        }
+
+        #message-box {
+            position: absolute;
+            background-color: rgba(255, 255, 255, 0.95);
+            color: #333;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            text-align: center;
+            z-index: 1000;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+        }
+        #message-box button {
+            margin-top: 15px;
+            padding: 8px 20px;
+            background-color: #008cba;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-info">
+        <span id="score-display">Score: 0</span>
+        <span id="high-score-display">High Score: 0</span>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <div id="game-over-screen">
+        <h2>Game Over</h2>
+        <p>Your Score: <span id="final-score">0</span></p>
+        <button id="restart-button">Play Again</button>
+    </div>
+
+    <div id="start-button-container">
+        <button id="start-game-button">Start Game</button>
+    </div>
+
+    <div id="message-box">
+        <p id="message-text"></p>
+        <button id="message-close-button">OK</button>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, onSnapshot, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Firestore setup
+        setLogLevel('debug');
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const firestore = getFirestore(app);
+        let userId;
+
+        const showMessage = (text) => {
+            const messageBox = document.getElementById('message-box');
+            document.getElementById('message-text').textContent = text;
+            messageBox.style.display = 'flex';
+        };
+
+        document.getElementById('message-close-button').addEventListener('click', () => {
+            document.getElementById('message-box').style.display = 'none';
+        });
+
+        const handleAuth = async () => {
+            try {
+                if (typeof __initial_auth_token !== 'undefined') {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                    console.log("Signed in with custom token.");
+                } else {
+                    await signInAnonymously(auth);
+                    console.log("Signed in anonymously.");
+                }
+            } catch (error) {
+                console.error("Firebase Auth Error:", error);
+                showMessage("Authentication failed. Please check the console for details.");
+            }
+        };
+
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                userId = user.uid;
+                console.log("Authenticated with userId:", userId);
+                document.getElementById('high-score-display').textContent = 'Loading High Score...';
+                
+                const highscoreDocRef = doc(firestore, `artifacts/${appId}/public/data/highscores`, 'global_score');
+                
+                onSnapshot(highscoreDocRef, (docSnap) => {
+                    if (docSnap.exists()) {
+                        const data = docSnap.data();
+                        highScore = data.score;
+                        document.getElementById('high-score-display').textContent = `High Score: ${highScore}`;
+                    } else {
+                        console.log("No global high score found. Setting a new one.");
+                        setDoc(highscoreDocRef, { score: 0 });
+                        document.getElementById('high-score-display').textContent = `High Score: 0`;
+                    }
+                }, (error) => {
+                    console.error("Firestore snapshot error:", error);
+                    showMessage("Failed to load high score. Please check the console.");
+                });
+            } else {
+                console.log("User is signed out or not authenticated.");
+            }
+        });
+
+        // Game constants and variables
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreDisplay = document.getElementById('score-display');
+        const highScoreDisplay = document.getElementById('high-score-display');
+        const startButton = document.getElementById('start-game-button');
+        const gameOverScreen = document.getElementById('game-over-screen');
+        const restartButton = document.getElementById('restart-button');
+        const finalScoreDisplay = document.getElementById('final-score');
+        const startButtonContainer = document.getElementById('start-button-container');
+
+        let score = 0;
+        let highScore = 0;
+        let isGameActive = false;
+        let obstacles = [];
+        let frames = 0;
+        let gameSpeed = 1;
+        let gameLoopInterval;
+        let player = {
+            x: 0,
+            y: 0,
+            width: 30,
+            height: 30,
+            color: '#00d4ff'
+        };
+
+        // Resize canvas to fit screen
+        function resizeCanvas() {
+            canvas.width = Math.min(window.innerWidth - 40, 600);
+            canvas.height = Math.min(window.innerHeight - 150, 700);
+            player.x = canvas.width / 2;
+            player.y = canvas.height - 50;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // Player controls
+        let mouseX = player.x;
+        canvas.addEventListener('mousemove', (event) => {
+            mouseX = event.clientX - canvas.offsetLeft;
+        });
+        canvas.addEventListener('touchmove', (event) => {
+            event.preventDefault(); // Prevents page scrolling
+            mouseX = event.touches[0].clientX - canvas.offsetLeft;
+        });
+
+        // Game functions
+        function showStartScreen() {
+            gameOverScreen.style.display = 'none';
+            startButtonContainer.style.display = 'block';
+        }
+
+        function startGame() {
+            startButtonContainer.style.display = 'none';
+            gameOverScreen.style.display = 'none';
+            isGameActive = true;
+            score = 0;
+            obstacles = [];
+            frames = 0;
+            gameSpeed = 1;
+            player.x = canvas.width / 2;
+            player.y = canvas.height - 50;
+            if (gameLoopInterval) {
+                clearInterval(gameLoopInterval);
+            }
+            gameLoopInterval = setInterval(gameLoop, 1000 / 60);
+        }
+
+        function gameOver() {
+            isGameActive = false;
+            clearInterval(gameLoopInterval);
+            finalScoreDisplay.textContent = score;
+            gameOverScreen.style.display = 'flex';
+            checkAndSaveHighScore();
+        }
+
+        async function checkAndSaveHighScore() {
+            if (score > highScore) {
+                highScore = score;
+                highScoreDisplay.textContent = `High Score: ${highScore}`;
+                const highscoreDocRef = doc(firestore, `artifacts/${appId}/public/data/highscores`, 'global_score');
+                try {
+                    await setDoc(highscoreDocRef, { score: highScore });
+                    console.log("High score saved successfully.");
+                } catch (error) {
+                    console.error("Error saving high score:", error);
+                    showMessage("Failed to save high score. Check console for details.");
+                }
+            }
+        }
+
+        function gameLoop() {
+            if (!isGameActive) return;
+
+            // Update player position
+            player.x += (mouseX - player.x) * 0.1;
+
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw and update player
+            ctx.fillStyle = player.color;
+            ctx.fillRect(player.x - player.width / 2, player.y, player.width, player.height);
+
+            // Generate obstacles
+            if (frames % 90 === 0) { // Generate new obstacle every 90 frames
+                const obstacleWidth = 80 + Math.random() * 80;
+                const gap = 100 + Math.random() * 50;
+                const side = Math.random() < 0.5 ? 'left' : 'right';
+
+                if (side === 'left') {
+                    obstacles.push({
+                        x: 0,
+                        y: -20,
+                        width: obstacleWidth,
+                        height: 20
+                    });
+                    obstacles.push({
+                        x: obstacleWidth + gap,
+                        y: -20,
+                        width: canvas.width - (obstacleWidth + gap),
+                        height: 20
+                    });
+                } else {
+                    obstacles.push({
+                        x: 0,
+                        y: -20,
+                        width: canvas.width - (obstacleWidth + gap),
+                        height: 20
+                    });
+                    obstacles.push({
+                        x: canvas.width - obstacleWidth,
+                        y: -20,
+                        width: obstacleWidth,
+                        height: 20
+                    });
+                }
+            }
+
+            // Update and draw obstacles
+            obstacles.forEach((obstacle, index) => {
+                obstacle.y += gameSpeed;
+                ctx.fillStyle = '#ff4d4d';
+                ctx.fillRect(obstacle.x, obstacle.y, obstacle.width, obstacle.height);
+
+                // Collision detection
+                if (player.x + player.width / 2 > obstacle.x &&
+                    player.x - player.width / 2 < obstacle.x + obstacle.width &&
+                    player.y + player.height > obstacle.y &&
+                    player.y < obstacle.y + obstacle.height) {
+                    gameOver();
+                }
+
+                // Remove obstacles that are off-screen
+                if (obstacle.y > canvas.height) {
+                    obstacles.splice(index, 1);
+                }
+            });
+
+            // Increase score and speed
+            frames++;
+            if (frames % 10 === 0) {
+                score++;
+                scoreDisplay.textContent = `Score: ${score}`;
+            }
+
+            gameSpeed += 0.005; // Gradually increase game speed
+
+            // Check if player is off-screen
+            if (player.x - player.width / 2 < 0 || player.x + player.width / 2 > canvas.width) {
+                gameOver();
+            }
+        }
+
+        // Event listeners for UI buttons
+        startButton.addEventListener('click', startGame);
+        restartButton.addEventListener('click', startGame);
+
+        // Initial setup
+        window.onload = function() {
+            handleAuth();
+            showStartScreen();
+        };
+
+    </script>
+</body>
+</html>

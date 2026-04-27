@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fox Platformer: La Quête Finale</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #1a1a2e;
+            font-family: 'Press Start 2P', cursive;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+        .game-container {
+            width: 90%;
+            max-width: 1000px;
+            aspect-ratio: 16 / 9;
+            background: #5c94fc; /* Ciel bleu clair */
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            overflow: hidden;
+            position: relative;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            image-rendering: -moz-crisp-edges;
+            image-rendering: -webkit-crisp-edges;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+        }
+        .ui-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            pointer-events: none;
+        }
+        .score {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            font-size: 1em; /* Ajusté pour la police pixel */
+            color: #fff;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.7);
+        }
+        .end-screen { /* Nom générique pour victoire et défaite */
+            background-color: rgba(0, 0, 0, 0.75);
+            padding: 30px;
+            border-radius: 10px;
+            border: 3px solid #fff;
+            pointer-events: all;
+        }
+        .end-screen h1 {
+            margin: 0 0 15px 0;
+            font-size: 2em;
+        }
+        .end-screen p {
+            margin: 0 0 25px 0;
+            font-size: 1em;
+        }
+        .end-screen button {
+            font-family: 'Press Start 2P', cursive;
+            font-size: 1em;
+            padding: 15px 25px;
+            border-radius: 8px;
+            border: none;
+            background-color: #4CAF50;
+            color: white;
+            cursor: pointer;
+            box-shadow: 0 5px 0 #388E3C;
+            transition: all 0.1s;
+        }
+        .end-screen button:active {
+            transform: translateY(3px);
+            box-shadow: 0 2px 0 #388E3C;
+        }
+        .controls {
+            margin-top: 20px;
+            font-size: 1em;
+            color: #e0e0e0;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="game-container">
+        <canvas id="gameCanvas"></canvas>
+        <div id="ui" class="ui-overlay">
+            <div id="score" class="score">SCORE: 0</div>
+            <div id="endScreen" class="end-screen" style="display: none;">
+                <h1 id="endTitle">GAME OVER</h1>
+                <p id="finalScore">SCORE FINAL : 0</p>
+                <button id="restartButton">RECOMMENCER</button>
+            </div>
+        </div>
+    </div>
+    <div class="controls">
+        ▲ SAUTER (Double Saut possible !), ◀ ▶ MARCHER
+    </div>
+
+    <script>
+        // --- Configuration du Canvas et de l'UI ---
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreElement = document.getElementById('score');
+        const endScreen = document.getElementById('endScreen');
+        const endTitle = document.getElementById('endTitle');
+        const finalScoreElement = document.getElementById('finalScore');
+        const restartButton = document.getElementById('restartButton');
+
+        // --- État et Constantes du Jeu ---
+        let fox, keys = {}, platforms = [], enemies = [], collectibles = [], clouds = [], particles = [], goal;
+        let animationFrame, isGameOver = false, score = 0;
+        let cameraX = 0;
+        const GRAVITY = 0.6;
+        const JUMP_STRENGTH = -14;
+        const FOX_SPEED = 4;
+        const JUMP_BUFFER = 8; // Nombre de frames pour le tampon de saut
+
+        // --- Classes des Entités du Jeu ---
+
+        class Fox {
+            constructor(x, y) {
+                this.width = 40; this.height = 30;
+                this.x = x; this.y = y;
+                this.prevY = y;
+                this.dx = 0; this.dy = 0;
+                this.isOnGround = false;
+                this.facingRight = true;
+                this.jumpsLeft = 0;
+                this.jumpBufferCounter = 0;
+            }
+
+            draw() {
+                ctx.save();
+                ctx.translate(Math.floor(this.x - cameraX), Math.floor(this.y));
+                if (!this.facingRight) ctx.scale(-1, 1);
+                
+                ctx.fillStyle = '#d97706';
+                ctx.fillRect(-this.width / 2, -this.height, this.width, this.height);
+                
+                ctx.beginPath();
+                ctx.moveTo(this.width / 2, -this.height);
+                ctx.lineTo(this.width / 2 + 15, -this.height / 2);
+                ctx.lineTo(this.width / 2, -this.height / 3);
+                ctx.fill();
+
+                ctx.fillStyle = '#e67e22';
+                ctx.beginPath();
+                ctx.moveTo(-this.width / 2, -this.height / 2);
+                ctx.bezierCurveTo(-this.width, -this.height * 1.5, -this.width, 0, -this.width/2, 0);
+                ctx.fill();
+
+                ctx.restore();
+            }
+
+            update() {
+                this.prevY = this.y;
+
+                if (keys['ArrowRight']) { this.dx = FOX_SPEED; this.facingRight = true; }
+                else if (keys['ArrowLeft']) { this.dx = -FOX_SPEED; this.facingRight = false; }
+                else { this.dx = 0; }
+                this.x += this.dx;
+
+                this.dy += GRAVITY;
+                this.y += this.dy;
+                
+                if (this.jumpBufferCounter > 0) {
+                    this.jumpBufferCounter--;
+                    if (this.jumpsLeft > 0) {
+                        this.performJump();
+                    }
+                }
+
+                if (this.y > canvas.height + 100) {
+                    endGame();
+                }
+            }
+
+            jump() {
+                this.jumpBufferCounter = JUMP_BUFFER;
+            }
+            
+            performJump() {
+                this.dy = JUMP_STRENGTH;
+                this.jumpsLeft--;
+                this.jumpBufferCounter = 0;
+                this.isOnGround = false;
+            }
+
+            land() {
+                if (!this.isOnGround) {
+                    for (let i = 0; i < 5; i++) {
+                        particles.push(new Particle(this.x, this.y, '#d2b48c'));
+                    }
+                }
+                this.isOnGround = true;
+                this.jumpsLeft = 2;
+            }
+        }
+        
+        class Particle {
+            constructor(x, y, color) { this.x = x; this.y = y; this.color = color; this.dx = (Math.random() - 0.5) * 2; this.dy = (Math.random() - 0.5) * 2 - 1; this.size = Math.random() * 3 + 1; this.life = 30; }
+            update() { this.x += this.dx; this.y += this.dy; this.life--; }
+            draw() { ctx.save(); ctx.globalAlpha = this.life / 30; ctx.fillStyle = this.color; ctx.fillRect(this.x - cameraX, this.y, this.size, this.size); ctx.restore(); }
+        }
+
+        class Platform {
+            constructor(x, y, width) { this.x = x; this.y = y; this.width = width; this.height = 20; }
+            draw() { ctx.fillStyle = '#6d4c41'; ctx.fillRect(Math.floor(this.x - cameraX), Math.floor(this.y), this.width, this.height); ctx.fillStyle = '#4caf50'; ctx.fillRect(Math.floor(this.x - cameraX), Math.floor(this.y), this.width, 10); }
+        }
+
+        class Enemy {
+            constructor(x, y, platform) { this.width = 30; this.height = 30; this.x = x; this.y = y - this.height; this.platform = platform; this.dx = 1; }
+            draw() { ctx.fillStyle = '#95a5a6'; ctx.fillRect(Math.floor(this.x - cameraX), Math.floor(this.y), this.width, this.height); ctx.fillStyle = '#2c3e50'; ctx.fillRect(Math.floor(this.x - cameraX + 5), Math.floor(this.y + 10), 5, 5); ctx.fillRect(Math.floor(this.x - cameraX + 20), Math.floor(this.y + 10), 5, 5); }
+            update() { this.x += this.dx; if (this.x < this.platform.x || this.x + this.width > this.platform.x + this.platform.width) { this.dx *= -1; } }
+        }
+        
+        class Collectible {
+            constructor(x, y) { this.width = 20; this.height = 20; this.x = x; this.y = y - this.height; }
+            draw() { ctx.fillStyle = '#e74c3c'; ctx.beginPath(); ctx.arc(Math.floor(this.x - cameraX + this.width/2), Math.floor(this.y + this.height/2), this.width/2, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#2ecc71'; ctx.fillRect(Math.floor(this.x - cameraX + 8), Math.floor(this.y - 5), 5, 10); }
+        }
+
+        class Cloud {
+            constructor(x, y, size) { this.x = x; this.y = y; this.size = size; this.speed = 0.2 + Math.random() * 0.3; }
+            draw() { ctx.fillStyle = 'rgba(255, 255, 255, 0.8)'; ctx.beginPath(); const camX = Math.floor(cameraX * 0.5); ctx.arc(this.x - camX, this.y, this.size, 0, Math.PI * 2); ctx.arc(this.x - camX + this.size*0.8, this.y, this.size*0.8, 0, Math.PI * 2); ctx.arc(this.x - camX - this.size*0.8, this.y, this.size*0.7, 0, Math.PI * 2); ctx.fill(); }
+            update() { this.x -= this.speed; if (this.x - cameraX * 0.5 + this.size < 0) { this.x = cameraX * 0.5 + canvas.width + this.size + Math.random() * 300; } }
+        }
+        
+        class Goal {
+            constructor(x, y) { this.width = 60; this.height = 50; this.x = x; this.y = y - this.height; }
+            draw() { const screenX = Math.floor(this.x - cameraX); const screenY = Math.floor(this.y); ctx.fillStyle = '#6d4c41'; ctx.fillRect(screenX, screenY, this.width, this.height); ctx.fillStyle = '#3e2723'; ctx.fillRect(screenX + 10, screenY + 20, this.width - 20, this.height - 20); ctx.fillStyle = '#ffeb3b'; ctx.beginPath(); ctx.arc(screenX + this.width/2, screenY + this.height/2, 5, 0, Math.PI*2); ctx.fill(); }
+        }
+
+        // --- Fonctions du Jeu ---
+
+        function setupLevel() {
+            platforms = [
+                new Platform(0, canvas.height - 40, 400),
+                new Platform(500, canvas.height - 80, 150),
+                new Platform(750, canvas.height - 160, 150),
+                new Platform(1100, canvas.height - 140, 200), // Nécessite un double saut
+                new Platform(1450, canvas.height - 220, 80),
+                new Platform(1650, canvas.height - 300, 80),
+                new Platform(1900, canvas.height - 120, 300),
+                new Platform(2400, canvas.height - 100, 200)
+            ];
+            enemies = [ new Enemy(1950, platforms[6].y, platforms[6]) ];
+            collectibles = [ new Collectible(550, platforms[1].y), new Collectible(800, platforms[2].y), new Collectible(1500, platforms[4].y), new Collectible(1700, platforms[5].y), new Collectible(2000, platforms[6].y) ];
+            const lastPlatform = platforms[platforms.length - 1];
+            goal = new Goal(lastPlatform.x + lastPlatform.width / 2 - 30, lastPlatform.y);
+        }
+
+        function checkCollisions() {
+            let onAnyPlatform = false;
+            for (const p of platforms) {
+                if (fox.x + fox.width / 2 > p.x && fox.x - fox.width / 2 < p.x + p.width) {
+                    if (fox.dy >= 0 && fox.prevY <= p.y && fox.y >= p.y) {
+                        fox.dy = 0;
+                        fox.y = p.y;
+                        fox.land();
+                        onAnyPlatform = true;
+                        break;
+                    }
+                }
+            }
+            if (!onAnyPlatform) fox.isOnGround = false;
+            
+            for (let i = enemies.length - 1; i >= 0; i--) {
+                const e = enemies[i];
+                if (fox.x + fox.width/2 > e.x && fox.x - fox.width/2 < e.x + e.width && fox.y > e.y && fox.y < e.y + e.height + fox.height) {
+                    if (fox.dy > 0 && fox.prevY < e.y) { enemies.splice(i, 1); fox.dy = -8; score += 50; } else { endGame(); }
+                }
+            }
+
+            for (let i = collectibles.length - 1; i >= 0; i--) {
+                const c = collectibles[i];
+                const distX = fox.x - (c.x + c.width / 2); const distY = (fox.y - fox.height/2) - (c.y + c.height / 2);
+                if (Math.sqrt(distX * distX + distY * distY) < fox.width/2 + c.width/2) { collectibles.splice(i, 1); score += 10; }
+            }
+            
+            if (fox.x > goal.x && fox.x < goal.x + goal.width && fox.y > goal.y + 20) { winGame(); }
+        }
+        
+        function updateCamera() { cameraX += (fox.x - canvas.width / 3 - cameraX) * 0.1; }
+
+        function endGame() {
+            if(isGameOver) return;
+            isGameOver = true;
+            scoreElement.style.display = 'none';
+            endTitle.innerText = "GAME OVER";
+            endTitle.style.color = '#ff4d4d';
+            finalScoreElement.innerText = `SCORE FINAL : ${score}`;
+            endScreen.style.display = 'flex';
+            cancelAnimationFrame(animationFrame);
+        }
+
+        function winGame() {
+            if(isGameOver) return;
+            isGameOver = true;
+            scoreElement.style.display = 'none';
+            endTitle.innerText = "VICTOIRE !";
+            endTitle.style.color = '#4CAF50';
+            finalScoreElement.innerText = `SCORE FINAL : ${score}`;
+            endScreen.style.display = 'flex';
+            cancelAnimationFrame(animationFrame);
+        }
+
+        function restartGame() {
+            isGameOver = false; score = 0; cameraX = 0; particles = [];
+            endScreen.style.display = 'none';
+            scoreElement.style.display = 'block';
+            init();
+            gameLoop();
+        }
+
+        function init() {
+            const container = document.querySelector('.game-container');
+            canvas.width = container.clientWidth; canvas.height = container.clientHeight;
+            fox = new Fox(150, canvas.height / 2);
+            setupLevel();
+            clouds = [];
+            for(let i=0; i<10; i++){ clouds.push(new Cloud(Math.random() * canvas.width, Math.random() * canvas.height/2, Math.random()*20+15)); }
+        }
+
+        function gameLoop() {
+            if (isGameOver) return;
+
+            fox.update();
+            checkCollisions();
+            enemies.forEach(e => e.update());
+            clouds.forEach(c => c.update());
+            particles.forEach((p, index) => { p.update(); if (p.life <= 0) particles.splice(index, 1); });
+            updateCamera();
+
+            scoreElement.innerText = `SCORE: ${score}`;
+
+            ctx.fillStyle = '#5c94fc'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            clouds.forEach(c => c.draw());
+            platforms.forEach(p => p.draw());
+            collectibles.forEach(c => c.draw());
+            enemies.forEach(e => e.draw());
+            goal.draw();
+            particles.forEach(p => p.draw());
+            fox.draw();
+
+            animationFrame = requestAnimationFrame(gameLoop);
+        }
+
+        window.addEventListener('keydown', (e) => { keys[e.key] = true; if (e.key === 'ArrowUp') fox.jump(); });
+        window.addEventListener('keyup', (e) => { keys[e.key] = false; });
+        restartButton.addEventListener('click', restartGame);
+        window.addEventListener('resize', () => { if(animationFrame) cancelAnimationFrame(animationFrame); restartGame(); });
+
+        init();
+        gameLoop();
+    </script>
+</body>
+</html>

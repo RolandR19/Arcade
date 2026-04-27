@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Machine à sous virtuelle</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.min.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #0f172a, #1e293b);
+            color: #f1f5f9;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            padding: 1rem;
+        }
+        .container {
+            max-width: 500px;
+            width: 100%;
+            background-color: #1a202c;
+            border-radius: 1.5rem;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.4);
+            border: 4px solid #4a5568;
+            padding: 2rem;
+        }
+        .reel-container {
+            display: flex;
+            justify-content: space-around;
+            gap: 0.5rem;
+            margin-top: 1.5rem;
+        }
+        .reel {
+            width: 80px;
+            height: 100px;
+            background-color: #2d3748;
+            border: 2px solid #4a5568;
+            border-radius: 0.75rem;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 3rem;
+            transition: transform 0.5s ease-out;
+            user-select: none;
+            overflow: hidden;
+            position: relative;
+        }
+        .symbol {
+            font-size: 3rem;
+            line-height: 1;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            transition: transform 0.3s ease-in-out;
+        }
+        .spinning .symbol {
+            animation: spin 0.2s linear infinite;
+        }
+        @keyframes spin {
+            from { transform: translateY(-50%) rotate(0deg); }
+            to { transform: translateY(-50%) rotate(360deg); }
+        }
+        .spinning {
+            animation: spinReel 0.1s linear infinite;
+        }
+        @keyframes spinReel {
+            0% { transform: translateY(0); }
+            100% { transform: translateY(-100%); }
+        }
+        .button-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1rem;
+        }
+        .button {
+            background-image: linear-gradient(to right, #6366f1 0%, #8b5cf6 51%, #6366f1 100%);
+            padding: 0.75rem 2rem;
+            text-align: center;
+            transition: 0.5s;
+            background-size: 200% auto;
+            color: white;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            cursor: pointer;
+            border: none;
+            font-weight: bold;
+            font-size: 1.25rem;
+            text-transform: uppercase;
+        }
+        .button:hover {
+            background-position: right center;
+            color: #fff;
+            text-decoration: none;
+        }
+        .button:disabled {
+            background: #4a5568;
+            cursor: not-allowed;
+        }
+        .message-box {
+            background-color: #2d3748;
+            border-radius: 0.75rem;
+            padding: 1rem;
+            text-align: center;
+            margin-top: 1.5rem;
+            font-weight: bold;
+            font-size: 1.25rem;
+            min-height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="text-center">
+        <h1 class="text-3xl font-bold mb-2">🎰 Machine à sous virtuelle 🎰</h1>
+        <p class="text-gray-400">Tirez le levier pour tenter votre chance !</p>
+    </div>
+
+    <div class="mt-8 flex justify-between items-center bg-gray-700 p-4 rounded-xl shadow-inner">
+        <div>
+            <span class="text-lg font-semibold">Solde :</span>
+            <span id="balance" class="text-2xl font-bold ml-2 text-green-400"></span>
+        </div>
+        <div>
+            <span class="text-lg font-semibold">Mise :</span>
+            <span id="betAmount" class="text-2xl font-bold ml-2 text-yellow-300"></span>
+        </div>
+    </div>
+
+    <div class="reel-container" id="reels">
+        <div class="reel">
+            <span id="reel1" class="symbol">🍎</span>
+        </div>
+        <div class="reel">
+            <span id="reel2" class="symbol">🍎</span>
+        </div>
+        <div class="reel">
+            <span id="reel3" class="symbol">🍎</span>
+        </div>
+    </div>
+
+    <div class="mt-8 button-wrapper">
+        <button id="spinButton" class="button">TIRER</button>
+    </div>
+
+    <div id="messageBox" class="message-box">
+        Bienvenue !
+    </div>
+</div>
+
+<script>
+    const symbols = ['🍒', '🍋', '🍇', '🔔', '💎'];
+    const winCombos = [
+        ['🍒', '🍒', '🍒'],
+        ['🍋', '🍋', '🍋'],
+        ['🍇', '🍇', '🍇'],
+        ['🔔', '🔔', '🔔'],
+        ['💎', '💎', '💎']
+    ];
+    const reels = document.querySelectorAll('.reel');
+    const reelSymbols = document.querySelectorAll('.symbol');
+    const spinButton = document.getElementById('spinButton');
+    const balanceDisplay = document.getElementById('balance');
+    const betAmountDisplay = document.getElementById('betAmount');
+    const messageBox = document.getElementById('messageBox');
+
+    let balance = 500;
+    const betAmount = 10;
+    let isSpinning = false;
+    let audioReady = false;
+
+    // Initialize Tone.js for sounds
+    const audioContext = new Tone.Context();
+    const synth = new Tone.PolySynth(Tone.Synth, {
+        oscillator: { type: "sine" }
+    }).toDestination();
+    
+    // Play a small sound on load to initialize audio context
+    document.addEventListener('DOMContentLoaded', () => {
+        const audioInit = () => {
+            if (audioContext.state !== 'running') {
+                audioContext.resume().then(() => {
+                    console.log("Audio context resumed successfully.");
+                    audioReady = true;
+                });
+            } else {
+                audioReady = true;
+            }
+        };
+        document.body.addEventListener('click', audioInit, { once: true });
+    });
+
+    const playSound = (note, duration) => {
+        if (audioReady) {
+            synth.triggerAttackRelease(note, duration);
+        }
+    };
+    
+    const playSpinSound = () => {
+        const notes = ["C4", "E4", "G4", "A4"];
+        let i = 0;
+        const spinInterval = setInterval(() => {
+            if (!isSpinning) {
+                clearInterval(spinInterval);
+                return;
+            }
+            playSound(notes[i % notes.length], "8n");
+            i++;
+        }, 100);
+    };
+
+    const updateDisplay = () => {
+        balanceDisplay.textContent = `${balance} $`;
+        betAmountDisplay.textContent = `${betAmount} $`;
+    };
+
+    const spinReels = () => {
+        return new Promise(resolve => {
+            const results = [];
+            let completedReels = 0;
+            const spinDuration = 2000; // 2 seconds
+
+            reels.forEach((reel, index) => {
+                const startTime = Date.now();
+                reel.classList.add('spinning');
+
+                const spinInterval = setInterval(() => {
+                    const randomSymbol = symbols[Math.floor(Math.random() * symbols.length)];
+                    reelSymbols[index].textContent = randomSymbol;
+                }, 50);
+
+                setTimeout(() => {
+                    clearInterval(spinInterval);
+                    reel.classList.remove('spinning');
+                    const finalSymbol = symbols[Math.floor(Math.random() * symbols.length)];
+                    reelSymbols[index].textContent = finalSymbol;
+                    results[index] = finalSymbol;
+                    completedReels++;
+                    if (completedReels === reels.length) {
+                        resolve(results);
+                    }
+                }, spinDuration + index * 500); // Stagger the stopping of each reel
+            });
+        });
+    };
+
+    const checkWin = (results) => {
+        const isWin = winCombos.some(combo => {
+            return combo.every((symbol, index) => symbol === results[index]);
+        });
+        return isWin;
+    };
+
+    const handleSpin = async () => {
+        if (isSpinning || balance < betAmount) {
+            if (balance < betAmount) {
+                messageBox.textContent = "Solde insuffisant !";
+                playSound("D3", "8n");
+            }
+            return;
+        }
+
+        isSpinning = true;
+        spinButton.disabled = true;
+        balance -= betAmount;
+        updateDisplay();
+        messageBox.textContent = "Tirage en cours...";
+        
+        playSpinSound();
+
+        const results = await spinReels();
+
+        isSpinning = false;
+        spinButton.disabled = false;
+        
+        if (checkWin(results)) {
+            const winnings = betAmount * 10;
+            balance += winnings;
+            messageBox.innerHTML = `<strong>VOUS AVEZ GAGNÉ !</strong> <br>+${winnings} $`;
+            playSound("G5", "2n");
+        } else {
+            messageBox.innerHTML = "Désolé, réessayez !";
+            playSound("C3", "4n");
+        }
+        
+        updateDisplay();
+    };
+
+    spinButton.addEventListener('click', handleSpin);
+
+    // Initial display update
+    updateDisplay();
+
+</script>
+
+</body>
+</html>

@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jeu Pierre - Feuille - Ciseaux</title>
+    <style>
+        :root {
+            --primary: #6366f1;
+            --bg-color: #f1f5f9;
+            --card-bg: #ffffff;
+            --text-main: #0f172a;
+            --win: #10b981;
+            --loss: #f43f5e;
+            --tie: #94a3b8;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            background: var(--card-bg);
+            padding: 2.5rem;
+            border-radius: 2rem;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+            max-width: 650px;
+            width: 90%;
+            text-align: center;
+        }
+
+        h1 {
+            margin-bottom: 0.5rem;
+            color: var(--primary);
+            font-size: 2.2rem;
+        }
+
+        .rules {
+            font-size: 1rem;
+            color: #64748b;
+            margin-bottom: 2.5rem;
+        }
+
+        .choices-container {
+            display: flex;
+            justify-content: center;
+            gap: 1.5rem;
+            flex-wrap: wrap;
+            margin-bottom: 2.5rem;
+        }
+
+        .choice {
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: 2px solid #e2e8f0;
+            border-radius: 1.25rem;
+            padding: 20px;
+            background: #f8fafc;
+            width: 140px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .choice:hover {
+            transform: translateY(-5px);
+            border-color: var(--primary);
+            background: #eff6ff;
+        }
+
+        .icon-svg {
+            width: 80px;
+            height: 80px;
+            margin-bottom: 1rem;
+        }
+
+        .choice p {
+            margin: 0;
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+
+        #game-status {
+            margin-top: 1rem;
+            padding: 1.5rem;
+            background: #f8fafc;
+            border-radius: 1.25rem;
+            min-height: 160px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .result-text {
+            font-size: 1.75rem;
+            font-weight: 800;
+            margin-bottom: 1rem;
+        }
+
+        .battle-display {
+            display: flex;
+            align-items: center;
+            gap: 2rem;
+        }
+
+        .pick-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .mini-icon {
+            width: 60px;
+            height: 60px;
+            padding: 10px;
+            background: white;
+            border-radius: 50%;
+            border: 2px solid #e2e8f0;
+            margin-top: 5px;
+        }
+
+        .vs {
+            font-weight: 900;
+            color: #cbd5e1;
+            font-size: 1.2rem;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Pierre, Feuille, Ciseaux</h1>
+        <p class="rules">Choisissez un symbole pour jouer !</p>
+
+        <div class="choices-container">
+            <!-- Pierre (SVG) -->
+            <div class="choice" onclick="play('pierre')">
+                <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 2L4.5 9c-1.5 1.5-2.5 3-2.5 5s1 4 3 5 5 1 7 1 5-1 7-1 3-3 3-5-1-3.5-2.5-5L12 2z"/>
+                </svg>
+                <p>Pierre</p>
+            </div>
+            <!-- Feuille (SVG) -->
+            <div class="choice" onclick="play('feuille')">
+                <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M4 18.5V5a2 2 0 0 1 2-2h10l4 4v11.5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/>
+                    <path d="M14 3v4h4"/>
+                    <path d="M8 12h8"/>
+                    <path d="M8 16h8"/>
+                </svg>
+                <p>Feuille</p>
+            </div>
+            <!-- Ciseaux (SVG) -->
+            <div class="choice" onclick="play('ciseaux')">
+                <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="6" cy="6" r="3"/>
+                    <circle cx="6" cy="18" r="3"/>
+                    <line x1="20" y1="4" x2="8.12" y2="15.88"/>
+                    <line x1="8.12" y1="8.12" x2="20" y2="20"/>
+                </svg>
+                <p>Ciseaux</p>
+            </div>
+        </div>
+
+        <div id="game-status">
+            <p id="instruction">C'est à vous de choisir !</p>
+            <div id="result-area" style="display:none;">
+                <div class="result-text" id="result-message"></div>
+                <div class="battle-display">
+                    <div class="pick-container">
+                        <small>Vous</small>
+                        <div id="user-icon" class="mini-icon"></div>
+                    </div>
+                    <div class="vs">VS</div>
+                    <div class="pick-container">
+                        <small>Ordi</small>
+                        <div id="comp-icon" class="mini-icon"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const svgs = {
+            'pierre': `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L4.5 9c-1.5 1.5-2.5 3-2.5 5s1 4 3 5 5 1 7 1 5-1 7-1 3-3 3-5-1-3.5-2.5-5L12 2z"/></svg>`,
+            'feuille': `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 18.5V5a2 2 0 0 1 2-2h10l4 4v11.5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><path d="M14 3v4h4"/><path d="M8 12h8"/><path d="M8 16h8"/></svg>`,
+            'ciseaux': `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="8.12" y1="8.12" x2="20" y2="20"/></svg>`
+        };
+
+        function play(userChoice) {
+            const choices = ['pierre', 'feuille', 'ciseaux'];
+            const computerChoice = choices[Math.floor(Math.random() * 3)];
+            
+            document.getElementById('instruction').style.display = 'none';
+            document.getElementById('result-area').style.display = 'block';
+
+            const userIconDiv = document.getElementById('user-icon');
+            const compIconDiv = document.getElementById('comp-icon');
+            userIconDiv.innerHTML = svgs[userChoice];
+            compIconDiv.innerHTML = svgs[computerChoice];
+
+            const resultMessage = document.getElementById('result-message');
+            let resultText = "";
+            let color = "";
+
+            if (userChoice === computerChoice) {
+                resultText = "ÉGALITÉ !";
+                color = "var(--tie)";
+            } else if (
+                (userChoice === 'pierre' && computerChoice === 'ciseaux') ||
+                (userChoice === 'feuille' && computerChoice === 'pierre') ||
+                (userChoice === 'ciseaux' && computerChoice === 'feuille')
+            ) {
+                resultText = "GAGNÉ !";
+                color = "var(--win)";
+            } else {
+                resultText = "PERDU !";
+                color = "var(--loss)";
+            }
+
+            resultMessage.innerText = resultText;
+            resultMessage.style.color = color;
+        }
+    </script>
+</body>
+</html>

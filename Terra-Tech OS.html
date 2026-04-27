@@ -1,0 +1,1438 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ETHIXFARM — Terra-Tech OS</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@300;400;500;600;700&family=Orbitron:wght@400;500;700;900&family=Crimson+Pro:ital,wght@0,300;0,400;1,300&display=swap');
+
+  :root {
+    --amber: #D4891A;
+    --amber-light: #F5B942;
+    --amber-glow: rgba(212,137,26,0.4);
+    --emerald: #2A7A4F;
+    --emerald-light: #3FBF78;
+    --emerald-glow: rgba(63,191,120,0.3);
+    --slate: #1C2B3A;
+    --slate-mid: #243447;
+    --slate-light: #2E4259;
+    --slate-pale: #3D5A73;
+    --soil: #4A2E1A;
+    --soil-light: #6B4226;
+    --cream: #E8DCC8;
+    --cream-dim: rgba(232,220,200,0.7);
+    --glass: rgba(28,43,58,0.75);
+    --glass-light: rgba(46,66,89,0.6);
+    --text-main: #E8DCC8;
+    --text-dim: rgba(232,220,200,0.55);
+    --text-accent: #F5B942;
+    --border: rgba(212,137,26,0.25);
+    --border-em: rgba(63,191,120,0.3);
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    background: #0D1A12;
+    color: var(--text-main);
+    font-family: 'Rajdhani', sans-serif;
+    overflow-x: hidden;
+    min-height: 100vh;
+  }
+
+  /* ── CANVAS 3D FARM ── */
+  #farm-canvas {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    z-index: 0;
+  }
+
+  /* ── OVERLAY UI ── */
+  #ui {
+    position: relative;
+    z-index: 10;
+    min-height: 100vh;
+    display: grid;
+    grid-template-rows: 60px 1fr 70px;
+    grid-template-columns: 260px 1fr 300px;
+  }
+
+  /* ── TOPBAR ── */
+  #topbar {
+    grid-column: 1/-1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 24px;
+    background: linear-gradient(90deg, rgba(13,26,18,0.95), rgba(28,43,58,0.9), rgba(13,26,18,0.95));
+    border-bottom: 1px solid var(--border);
+    backdrop-filter: blur(20px);
+  }
+
+  .logo {
+    font-family: 'Orbitron', monospace;
+    font-size: 22px;
+    font-weight: 900;
+    letter-spacing: 4px;
+    background: linear-gradient(135deg, var(--amber-light), var(--emerald-light));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: none;
+    position: relative;
+  }
+  .logo::after {
+    content: 'TERRA-TECH OS v4.2';
+    display: block;
+    font-size: 8px;
+    letter-spacing: 3px;
+    font-weight: 400;
+    background: linear-gradient(90deg, var(--amber), var(--emerald));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-top: -2px;
+  }
+
+  .mode-toggle {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--glass);
+    border: 1px solid var(--border);
+    border-radius: 30px;
+    padding: 6px 6px 6px 16px;
+    backdrop-filter: blur(10px);
+  }
+  .mode-label { font-size: 12px; letter-spacing: 2px; color: var(--text-dim); }
+  .toggle-switch {
+    position: relative;
+    width: 56px; height: 26px;
+    background: var(--slate-light);
+    border-radius: 13px;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    transition: background 0.3s;
+  }
+  .toggle-switch.sim { background: rgba(63,191,120,0.25); border-color: var(--emerald-light); }
+  .toggle-knob {
+    position: absolute;
+    top: 3px; left: 3px;
+    width: 20px; height: 20px;
+    background: var(--amber);
+    border-radius: 50%;
+    transition: all 0.3s cubic-bezier(0.34,1.56,0.64,1);
+    box-shadow: 0 0 8px var(--amber-glow);
+  }
+  .toggle-switch.sim .toggle-knob {
+    left: calc(100% - 23px);
+    background: var(--emerald-light);
+    box-shadow: 0 0 8px var(--emerald-glow);
+  }
+
+  .top-stats {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+  }
+  .stat-pill {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--glass);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 4px 14px;
+    font-size: 12px;
+    letter-spacing: 1px;
+  }
+  .stat-pill .val { color: var(--amber-light); font-weight: 700; font-family: 'Orbitron', monospace; font-size: 13px; }
+  .stat-pill .lbl { color: var(--text-dim); }
+
+  /* ── LEFT PANEL ── */
+  #left-panel {
+    grid-row: 2;
+    grid-column: 1;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    overflow-y: auto;
+    background: linear-gradient(180deg, rgba(13,26,18,0.9), rgba(13,26,18,0.7));
+    border-right: 1px solid var(--border);
+    backdrop-filter: blur(20px);
+  }
+
+  .panel-title {
+    font-family: 'Orbitron', monospace;
+    font-size: 9px;
+    letter-spacing: 4px;
+    color: var(--amber);
+    text-transform: uppercase;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* ── FARM 3D ZONES ── */
+  .farm-zone {
+    background: var(--glass);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+  .farm-zone::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--amber), transparent);
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .farm-zone:hover { border-color: var(--amber); transform: translateX(3px); }
+  .farm-zone:hover::before { opacity: 1; }
+  .farm-zone.active { border-color: var(--emerald-light); background: rgba(42,122,79,0.15); }
+  .farm-zone.active::before { opacity: 1; background: linear-gradient(90deg, transparent, var(--emerald-light), transparent); }
+
+  .zone-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+  .zone-name { font-size: 13px; font-weight: 600; letter-spacing: 1px; }
+  .zone-status {
+    font-size: 9px;
+    letter-spacing: 2px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    background: rgba(63,191,120,0.2);
+    color: var(--emerald-light);
+    border: 1px solid rgba(63,191,120,0.3);
+  }
+  .zone-status.warn { background: rgba(212,137,26,0.2); color: var(--amber-light); border-color: var(--border); }
+  .zone-status.crit { background: rgba(180,50,50,0.2); color: #FF6B6B; border-color: rgba(180,50,50,0.3); }
+
+  .zone-bar { height: 4px; background: var(--slate-light); border-radius: 2px; overflow: hidden; }
+  .zone-fill { height: 100%; border-radius: 2px; transition: width 1s ease; }
+  .zone-fill.green { background: linear-gradient(90deg, var(--emerald), var(--emerald-light)); }
+  .zone-fill.amber { background: linear-gradient(90deg, var(--amber), var(--amber-light)); }
+  .zone-fill.red { background: linear-gradient(90deg, #8B2020, #FF4444); }
+
+  .zone-meta { font-size: 10px; color: var(--text-dim); margin-top: 6px; letter-spacing: 0.5px; }
+
+  /* ── CENTER (3D FARM VIEW) ── */
+  #center {
+    grid-row: 2;
+    grid-column: 2;
+    position: relative;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    padding-bottom: 20px;
+  }
+
+  .center-hud {
+    position: absolute;
+    top: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 10px;
+  }
+  .hud-btn {
+    background: var(--glass);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 6px 16px;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: var(--text-dim);
+    cursor: pointer;
+    transition: all 0.2s;
+    backdrop-filter: blur(10px);
+  }
+  .hud-btn:hover, .hud-btn.active {
+    border-color: var(--amber);
+    color: var(--amber-light);
+    background: rgba(212,137,26,0.1);
+  }
+  .hud-btn.active.em { border-color: var(--emerald-light); color: var(--emerald-light); background: rgba(63,191,120,0.1); }
+
+  /* Floating info card */
+  .float-card {
+    background: var(--glass);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 14px 20px;
+    backdrop-filter: blur(20px);
+    display: flex;
+    gap: 20px;
+    align-items: center;
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+  .float-card .big { font-family: 'Orbitron', monospace; font-size: 22px; color: var(--amber-light); font-weight: 700; }
+  .float-card .unit { font-size: 10px; color: var(--text-dim); letter-spacing: 2px; }
+
+  /* ── RIGHT PANEL ── */
+  #right-panel {
+    grid-row: 2;
+    grid-column: 3;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    overflow-y: auto;
+    background: linear-gradient(180deg, rgba(13,26,18,0.9), rgba(13,26,18,0.7));
+    border-left: 1px solid var(--border);
+    backdrop-filter: blur(20px);
+  }
+
+  /* XP / Level card */
+  .xp-card {
+    background: linear-gradient(135deg, rgba(212,137,26,0.1), rgba(42,122,79,0.1));
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 14px;
+    position: relative;
+    overflow: hidden;
+  }
+  .xp-card::after {
+    content: '';
+    position: absolute;
+    top: -40px; right: -40px;
+    width: 100px; height: 100px;
+    background: radial-gradient(circle, rgba(212,137,26,0.15), transparent 70%);
+    border-radius: 50%;
+  }
+  .xp-label { font-size: 9px; letter-spacing: 3px; color: var(--text-dim); }
+  .xp-name { font-family: 'Orbitron', monospace; font-size: 15px; color: var(--amber-light); font-weight: 700; margin: 4px 0; }
+  .xp-bar-bg { height: 6px; background: var(--slate-light); border-radius: 3px; overflow: hidden; margin: 8px 0; }
+  .xp-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    background: linear-gradient(90deg, var(--amber), var(--amber-light), var(--emerald-light));
+    width: 68%;
+    animation: xpPulse 2s ease-in-out infinite;
+  }
+  @keyframes xpPulse {
+    0%,100% { opacity:1; }
+    50% { opacity:0.7; }
+  }
+  .xp-row { display: flex; justify-content: space-between; font-size: 10px; color: var(--text-dim); }
+  .xp-row span:last-child { color: var(--amber); }
+
+  /* Badges */
+  .badges-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .badge {
+    aspect-ratio: 1;
+    background: var(--glass);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+  }
+  .badge:hover { border-color: var(--amber); transform: scale(1.05); }
+  .badge.locked { opacity: 0.3; filter: grayscale(1); }
+  .badge .badge-name { font-size: 7px; letter-spacing: 1px; color: var(--text-dim); margin-top: 3px; }
+
+  /* Metiers cards */
+  .metier-card {
+    background: var(--glass);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px;
+    cursor: pointer;
+    transition: all 0.25s;
+    border-left: 3px solid transparent;
+  }
+  .metier-card:hover { border-left-color: var(--amber); background: rgba(212,137,26,0.05); }
+  .metier-card.active-job { border-left-color: var(--emerald-light); background: rgba(42,122,79,0.1); }
+  .metier-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px; }
+  .metier-title { font-size: 12px; font-weight: 600; letter-spacing: 0.5px; line-height: 1.3; }
+  .metier-lvl { font-family: 'Orbitron', monospace; font-size: 10px; color: var(--amber); background: rgba(212,137,26,0.1); border: 1px solid var(--border); border-radius: 6px; padding: 2px 6px; white-space: nowrap; }
+  .metier-desc { font-size: 10px; color: var(--text-dim); line-height: 1.5; letter-spacing: 0.3px; }
+
+  /* Weather widget */
+  .weather-widget {
+    background: var(--glass);
+    border: 1px solid var(--border-em);
+    border-radius: 14px;
+    padding: 14px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    font-size: 11px;
+  }
+  .w-main { grid-column: 1/-1; display: flex; align-items: center; gap: 12px; }
+  .w-icon { font-size: 32px; }
+  .w-temp { font-family: 'Orbitron', monospace; font-size: 28px; color: var(--amber-light); font-weight: 700; }
+  .w-cond { font-size: 10px; color: var(--text-dim); letter-spacing: 1px; }
+  .w-stat { background: rgba(46,66,89,0.4); border-radius: 8px; padding: 6px 10px; }
+  .w-stat .k { font-size: 9px; color: var(--text-dim); letter-spacing: 1px; }
+  .w-stat .v { font-size: 13px; color: var(--emerald-light); font-weight: 600; }
+
+  /* ── BOTTOM BAR ── */
+  #bottombar {
+    grid-column: 1/-1;
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+    gap: 16px;
+    background: linear-gradient(90deg, rgba(13,26,18,0.95), rgba(28,43,58,0.9), rgba(13,26,18,0.95));
+    border-top: 1px solid var(--border);
+    backdrop-filter: blur(20px);
+    overflow-x: auto;
+  }
+
+  .nav-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    padding: 8px 16px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: 1px solid transparent;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .nav-btn:hover { border-color: var(--border); background: var(--glass); }
+  .nav-btn.active { border-color: var(--amber); background: rgba(212,137,26,0.1); }
+  .nav-btn .icon { font-size: 18px; }
+  .nav-btn .lbl { font-size: 9px; letter-spacing: 2px; color: var(--text-dim); }
+  .nav-btn.active .lbl { color: var(--amber-light); }
+
+  /* ── MODAL ── */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    backdrop-filter: blur(8px);
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s;
+  }
+  .modal-overlay.open { opacity: 1; pointer-events: all; }
+
+  .modal {
+    background: linear-gradient(135deg, rgba(22,38,26,0.97), rgba(28,43,58,0.97));
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 28px;
+    width: 640px;
+    max-width: 90vw;
+    max-height: 80vh;
+    overflow-y: auto;
+    transform: translateY(20px);
+    transition: transform 0.3s;
+    position: relative;
+  }
+  .modal-overlay.open .modal { transform: translateY(0); }
+
+  .modal-title {
+    font-family: 'Orbitron', monospace;
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    color: var(--amber-light);
+    margin-bottom: 6px;
+  }
+  .modal-sub { font-size: 11px; color: var(--text-dim); letter-spacing: 2px; margin-bottom: 20px; }
+  .modal-close {
+    position: absolute;
+    top: 20px; right: 20px;
+    background: var(--glass-light);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-dim);
+    font-size: 14px;
+    cursor: pointer;
+    padding: 4px 10px;
+    transition: all 0.2s;
+  }
+  .modal-close:hover { border-color: var(--amber); color: var(--amber-light); }
+
+  /* Grimoire entries */
+  .grimoire-entry {
+    background: var(--glass);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px;
+    margin-bottom: 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .grimoire-entry:hover { border-color: var(--emerald-light); }
+  .g-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .g-name { font-size: 14px; font-weight: 600; letter-spacing: 1px; }
+  .g-tag { font-size: 9px; padding: 2px 10px; border-radius: 10px; letter-spacing: 2px; background: rgba(42,122,79,0.2); border: 1px solid var(--border-em); color: var(--emerald-light); }
+  .g-tag.soil { background: rgba(74,46,26,0.4); border-color: rgba(107,66,38,0.5); color: #C4915A; }
+  .g-tag.animal { background: rgba(60,90,130,0.2); border-color: rgba(80,130,180,0.3); color: #7BBDE8; }
+  .g-desc { font-size: 11px; color: var(--text-dim); line-height: 1.6; }
+  .g-protocol { margin-top: 10px; background: rgba(13,26,18,0.6); border-radius: 8px; padding: 10px; font-size: 10px; color: var(--cream-dim); line-height: 1.7; border-left: 2px solid var(--emerald); }
+
+  /* Eco score ring */
+  .eco-ring {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+  }
+  .eco-ring svg { overflow: visible; }
+  .eco-ring .ring-val { font-family: 'Orbitron', monospace; font-size: 22px; font-weight: 700; fill: var(--emerald-light); }
+  .eco-ring .ring-lbl { font-size: 8px; letter-spacing: 3px; fill: var(--text-dim); }
+
+  /* Notification */
+  .notif {
+    position: fixed;
+    bottom: 90px;
+    right: 20px;
+    z-index: 200;
+    background: linear-gradient(135deg, rgba(42,122,79,0.9), rgba(28,43,58,0.9));
+    border: 1px solid var(--emerald-light);
+    border-radius: 12px;
+    padding: 12px 18px;
+    font-size: 12px;
+    letter-spacing: 1px;
+    color: var(--emerald-light);
+    backdrop-filter: blur(20px);
+    transform: translateX(150%);
+    transition: transform 0.4s cubic-bezier(0.34,1.56,0.64,1);
+    max-width: 260px;
+  }
+  .notif.show { transform: translateX(0); }
+  .notif .n-title { font-weight: 700; font-size: 13px; margin-bottom: 3px; }
+  .notif .n-sub { color: var(--text-dim); font-size: 10px; letter-spacing: 1.5px; }
+
+  /* Scanlines */
+  .scanlines {
+    position: fixed;
+    inset: 0;
+    z-index: 5;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px);
+    pointer-events: none;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  /* Sim mode overlay */
+  #sim-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 3;
+    pointer-events: none;
+    background: linear-gradient(135deg, rgba(63,191,120,0.04), rgba(42,122,79,0.06));
+    opacity: 0;
+    transition: opacity 0.5s;
+  }
+  #sim-overlay.active { opacity: 1; }
+  #sim-label {
+    position: fixed;
+    top: 70px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: 'Orbitron', monospace;
+    font-size: 9px;
+    letter-spacing: 5px;
+    color: var(--emerald-light);
+    background: rgba(42,122,79,0.2);
+    border: 1px solid rgba(63,191,120,0.3);
+    border-radius: 20px;
+    padding: 4px 18px;
+    z-index: 15;
+    opacity: 0;
+    transition: opacity 0.5s;
+    pointer-events: none;
+  }
+  #sim-label.active { opacity: 1; }
+
+  /* Floating particles */
+  .particle {
+    position: fixed;
+    width: 2px;
+    height: 2px;
+    background: var(--amber);
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 2;
+    opacity: 0;
+  }
+
+  /* Tab content */
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  /* Action buttons */
+  .action-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .act-btn {
+    flex: 1;
+    min-width: 80px;
+    padding: 8px 12px;
+    background: var(--glass);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    color: var(--text-main);
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: center;
+  }
+  .act-btn:hover { border-color: var(--amber); color: var(--amber-light); background: rgba(212,137,26,0.08); }
+  .act-btn.em:hover { border-color: var(--emerald-light); color: var(--emerald-light); background: rgba(63,191,120,0.08); }
+
+  /* Yield chart bars */
+  .yield-chart { display: flex; gap: 6px; align-items: flex-end; height: 60px; }
+  .ybar {
+    flex: 1;
+    background: linear-gradient(180deg, var(--emerald-light), var(--emerald));
+    border-radius: 3px 3px 0 0;
+    position: relative;
+    min-height: 8px;
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }
+  .ybar:hover { opacity: 0.8; }
+  .ybar.low { background: linear-gradient(180deg, var(--amber-light), var(--amber)); }
+  .ybar.hi { background: linear-gradient(180deg, #7BBDE8, #4A8AB0); }
+  .ybar-label { position: absolute; bottom: -16px; left: 50%; transform: translateX(-50%); font-size: 8px; color: var(--text-dim); white-space: nowrap; }
+  .chart-x { display: flex; gap: 6px; margin-top: 20px; }
+
+  /* Drone animation */
+  .drone-icon {
+    display: inline-block;
+    animation: droneFly 3s ease-in-out infinite;
+  }
+  @keyframes droneFly {
+    0%,100% { transform: translateY(0) rotate(0deg); }
+    25% { transform: translateY(-3px) rotate(2deg); }
+    75% { transform: translateY(3px) rotate(-2deg); }
+  }
+
+  /* Eco score in right panel */
+  .eco-score-card {
+    background: linear-gradient(135deg, rgba(42,122,79,0.12), rgba(13,26,18,0.8));
+    border: 1px solid var(--border-em);
+    border-radius: 14px;
+    padding: 14px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+</style>
+</head>
+<body>
+
+<canvas id="farm-canvas"></canvas>
+<div class="scanlines"></div>
+<div id="sim-overlay"></div>
+<div id="sim-label">MODE SIMULATEUR VIRTUEL</div>
+
+<!-- NOTIFICATION -->
+<div class="notif" id="notif">
+  <div class="n-title" id="notif-title">🏆 Badge Débloqué!</div>
+  <div class="n-sub" id="notif-sub">Maître des Semences — Niv.3</div>
+</div>
+
+<!-- MAIN UI -->
+<div id="ui">
+
+  <!-- TOPBAR -->
+  <div id="topbar">
+    <div class="logo">ETHIXFARM</div>
+
+    <div class="mode-toggle" id="modeToggle">
+      <span class="mode-label" id="modeLabel">GESTION TERRAIN</span>
+      <div class="toggle-switch" id="toggleSwitch">
+        <div class="toggle-knob"></div>
+      </div>
+    </div>
+
+    <div class="top-stats">
+      <div class="stat-pill">
+        <span class="lbl">YIELD</span>
+        <span class="val" id="yieldVal">847 T</span>
+      </div>
+      <div class="stat-pill">
+        <span class="lbl">ÉCO</span>
+        <span class="val" id="ecoVal" style="color:var(--emerald-light)">92%</span>
+      </div>
+      <div class="stat-pill">
+        <span class="lbl">DRONES</span>
+        <span class="val"><span class="drone-icon">🚁</span> 12/12</span>
+      </div>
+      <div class="stat-pill">
+        <span class="lbl">MÉTÉO</span>
+        <span class="val">22°C ☀️</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- LEFT PANEL -->
+  <div id="left-panel">
+    <div class="panel-title">⬡ ZONES ACTIVES</div>
+
+    <div class="farm-zone active" onclick="selectZone(0)">
+      <div class="zone-header">
+        <span class="zone-name">🌾 Champ Nord — Blé</span>
+        <span class="zone-status">OPTIMAL</span>
+      </div>
+      <div class="zone-bar"><div class="zone-fill green" style="width:87%"></div></div>
+      <div class="zone-meta">Humidité: 68% · Drone X7 actif</div>
+    </div>
+
+    <div class="farm-zone" onclick="selectZone(1)">
+      <div class="zone-header">
+        <span class="zone-name">🫘 Serre Alpha — Légumes</span>
+        <span class="zone-status warn">ARROSAGE</span>
+      </div>
+      <div class="zone-bar"><div class="zone-fill amber" style="width:54%"></div></div>
+      <div class="zone-meta">Humidité: 41% · Alerte sécheresse</div>
+    </div>
+
+    <div class="farm-zone" onclick="selectZone(2)">
+      <div class="zone-header">
+        <span class="zone-name">🌻 Parcelle B — Tournesol</span>
+        <span class="zone-status">RÉCOLTE J+3</span>
+      </div>
+      <div class="zone-bar"><div class="zone-fill green" style="width:95%"></div></div>
+      <div class="zone-meta">Maturité: 95% · Prêt</div>
+    </div>
+
+    <div class="farm-zone" onclick="selectZone(3)">
+      <div class="zone-header">
+        <span class="zone-name">🌱 Pépinière IA-9</span>
+        <span class="zone-status">GERMINATION</span>
+      </div>
+      <div class="zone-bar"><div class="zone-fill amber" style="width:30%"></div></div>
+      <div class="zone-meta">Semences bio-design · Phase I</div>
+    </div>
+
+    <div class="farm-zone" onclick="selectZone(4)">
+      <div class="zone-header">
+        <span class="zone-name">🐄 Élevage Sector 3</span>
+        <span class="zone-status crit">SOINS</span>
+      </div>
+      <div class="zone-bar"><div class="zone-fill red" style="width:40%"></div></div>
+      <div class="zone-meta">Vétérinaire requis · 3 bovins</div>
+    </div>
+
+    <div class="farm-zone" onclick="selectZone(5)">
+      <div class="zone-header">
+        <span class="zone-name">🍇 Vignoble Omega</span>
+        <span class="zone-status">EN CROISSANCE</span>
+      </div>
+      <div class="zone-bar"><div class="zone-fill green" style="width:72%"></div></div>
+      <div class="zone-meta">72% maturité · Vendange prévue</div>
+    </div>
+
+    <div class="panel-title" style="margin-top:8px">⬡ ACTIONS RAPIDES</div>
+    <div class="action-row">
+      <button class="act-btn" onclick="showNotif('🚁 Déployé!','Drone assigné à Champ Nord')">DRONE</button>
+      <button class="act-btn em" onclick="showNotif('💧 Arrosage','Serre Alpha activée')">ARROSAGE</button>
+    </div>
+    <div class="action-row">
+      <button class="act-btn" onclick="openModal('harvest')">RÉCOLTE</button>
+      <button class="act-btn em" onclick="openModal('grimoire')">GRIMOIRE</button>
+    </div>
+  </div>
+
+  <!-- CENTER -->
+  <div id="center">
+    <div class="center-hud">
+      <button class="hud-btn active" id="viewTerrain" onclick="setView('terrain')">VUE TERRAIN</button>
+      <button class="hud-btn" id="viewDrones" onclick="setView('drones')">DRONES</button>
+      <button class="hud-btn" id="viewIA" onclick="setView('ia')">IA PRÉDICTION</button>
+      <button class="hud-btn em" id="viewBio" onclick="setView('bio')">BIO-DESIGN</button>
+    </div>
+
+    <div class="float-card">
+      <div>
+        <div class="big" id="mainMetric">847</div>
+        <div class="unit">TONNES / SAISON</div>
+      </div>
+      <div style="width:1px; height:40px; background:var(--border)"></div>
+      <div>
+        <div style="font-size:11px; color:var(--text-dim); letter-spacing:1.5px;">PRÉVISION IA</div>
+        <div style="font-family:'Orbitron',monospace; font-size:16px; color:var(--emerald-light); font-weight:700;">+12.4%</div>
+        <div style="font-size:9px; color:var(--text-dim);">vs saison précédente</div>
+      </div>
+      <div style="width:1px; height:40px; background:var(--border)"></div>
+      <div>
+        <div style="font-size:11px; color:var(--text-dim); letter-spacing:1.5px;">PROCHAIN CYCLE</div>
+        <div style="font-family:'Orbitron',monospace; font-size:16px; color:var(--amber-light); font-weight:700;">J-18</div>
+        <div style="font-size:9px; color:var(--text-dim);">Blé d'hiver</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div id="right-panel">
+
+    <!-- Eco Score -->
+    <div class="eco-score-card">
+      <svg width="64" height="64" viewBox="0 0 64 64">
+        <circle cx="32" cy="32" r="26" fill="none" stroke="var(--slate-light)" stroke-width="5"/>
+        <circle cx="32" cy="32" r="26" fill="none" stroke="var(--emerald-light)" stroke-width="5"
+          stroke-dasharray="163.4" stroke-dashoffset="13"
+          stroke-linecap="round" transform="rotate(-90 32 32)"
+          style="filter:drop-shadow(0 0 6px var(--emerald-glow))"/>
+        <text x="32" y="37" text-anchor="middle" class="ring-val" font-family="Orbitron,monospace" font-size="14" font-weight="700" fill="#3FBF78">92</text>
+      </svg>
+      <div>
+        <div style="font-size:9px; letter-spacing:3px; color:var(--text-dim);">ÉCO-SCORE</div>
+        <div style="font-family:'Orbitron',monospace; font-size:17px; color:var(--emerald-light); font-weight:700; margin:3px 0">EXCELLENT</div>
+        <div style="font-size:10px; color:var(--text-dim);">Empreinte carbone: –34%</div>
+      </div>
+    </div>
+
+    <!-- XP -->
+    <div class="xp-card">
+      <div class="xp-label">HARVEST MASTERY</div>
+      <div class="xp-name">MAÎTRE DE LA TERRE</div>
+      <div class="xp-bar-bg"><div class="xp-bar-fill"></div></div>
+      <div class="xp-row"><span>Niv. 14</span><span>6800 / 10000 XP</span></div>
+    </div>
+
+    <!-- Badges -->
+    <div class="panel-title">⬡ BADGES OBTENUS</div>
+    <div class="badges-grid">
+      <div class="badge" onclick="showNotif('🌾 Badge','Maître du Blé — Saisonnier')"><div>🌾</div><div class="badge-name">BLÉ</div></div>
+      <div class="badge" onclick="showNotif('🚁 Badge','Pilote de Drone — Expert')"><div>🚁</div><div class="badge-name">DRONE</div></div>
+      <div class="badge" onclick="showNotif('🧬 Badge','Bio-Designer — Niv.2')"><div>🧬</div><div class="badge-name">ADN</div></div>
+      <div class="badge" onclick="showNotif('🌍 Badge','Terraformeur Certifié')"><div>🌍</div><div class="badge-name">TERRA</div></div>
+      <div class="badge locked"><div>🤖</div><div class="badge-name">ROBOT</div></div>
+      <div class="badge locked"><div>⚗️</div><div class="badge-name">CHIMIE</div></div>
+      <div class="badge locked"><div>🌊</div><div class="badge-name">EAU</div></div>
+      <div class="badge locked"><div>☀️</div><div class="badge-name">SOLEIL</div></div>
+    </div>
+
+    <!-- Météo -->
+    <div class="panel-title">⬡ MÉTÉO TERRAIN</div>
+    <div class="weather-widget">
+      <div class="w-main">
+        <div class="w-icon">☀️</div>
+        <div>
+          <div class="w-temp">22°C</div>
+          <div class="w-cond">ENSOLEILLÉ — PARFAIT POUR LA RÉCOLTE</div>
+        </div>
+      </div>
+      <div class="w-stat"><div class="k">HUMIDITÉ</div><div class="v">58%</div></div>
+      <div class="w-stat"><div class="k">VENT</div><div class="v">12 km/h</div></div>
+      <div class="w-stat"><div class="k">UV</div><div class="v">Élevé</div></div>
+      <div class="w-stat"><div class="k">PLUIE J+2</div><div class="v">70%</div></div>
+    </div>
+
+    <!-- Yield chart -->
+    <div class="panel-title">⬡ RENDEMENT HEBDO</div>
+    <div class="yield-chart">
+      <div class="ybar low" style="height:35%" title="Lundi"><div class="ybar-label">L</div></div>
+      <div class="ybar" style="height:55%"><div class="ybar-label">M</div></div>
+      <div class="ybar" style="height:70%"><div class="ybar-label">M</div></div>
+      <div class="ybar hi" style="height:88%"><div class="ybar-label">J</div></div>
+      <div class="ybar" style="height:65%"><div class="ybar-label">V</div></div>
+      <div class="ybar low" style="height:40%"><div class="ybar-label">S</div></div>
+      <div class="ybar" style="height:58%"><div class="ybar-label">D</div></div>
+    </div>
+
+  </div>
+
+  <!-- BOTTOM BAR -->
+  <div id="bottombar">
+    <div class="nav-btn active" onclick="navTo('cockpit')">
+      <span class="icon">🖥️</span>
+      <span class="lbl">COCKPIT</span>
+    </div>
+    <div class="nav-btn" onclick="openModal('academy')">
+      <span class="icon">🎓</span>
+      <span class="lbl">ACADÉMIE</span>
+    </div>
+    <div class="nav-btn" onclick="openModal('grimoire')">
+      <span class="icon">📖</span>
+      <span class="lbl">GRIMOIRE</span>
+    </div>
+    <div class="nav-btn" onclick="openModal('harvest')">
+      <span class="icon">🏆</span>
+      <span class="lbl">HARVEST MASTERY</span>
+    </div>
+    <div class="nav-btn" onclick="openModal('inventory')">
+      <span class="icon">📦</span>
+      <span class="lbl">INVENTAIRE</span>
+    </div>
+    <div class="nav-btn" onclick="openModal('drones')">
+      <span class="icon">🚁</span>
+      <span class="lbl">DRONES</span>
+    </div>
+    <div style="margin-left:auto" class="nav-btn" onclick="openModal('settings')">
+      <span class="icon">⚙️</span>
+      <span class="lbl">PARAMÈTRES</span>
+    </div>
+  </div>
+
+</div>
+
+<!-- ── MODALS ── -->
+<div class="modal-overlay" id="modal-overlay" onclick="closeModal(event)">
+  <div class="modal" id="modal-body">
+    <!-- Dynamic content -->
+  </div>
+</div>
+
+<script>
+// ─── 3D FARM CANVAS ───────────────────────────────────────────────────────────
+const canvas = document.getElementById('farm-canvas');
+const ctx = canvas.getContext('2d');
+let W, H, time = 0, simMode = false;
+
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+// 3D isometric farm grid
+const TILE = 48;
+const farmCols = 12, farmRows = 10;
+const originX = W / 2;
+const originY = H * 0.52;
+
+function iso(c, r) {
+  return {
+    x: originX + (c - r) * TILE * 0.65,
+    y: originY + (c + r) * TILE * 0.35
+  };
+}
+
+const tiles = [];
+for (let r = 0; r < farmRows; r++) {
+  for (let c = 0; c < farmCols; c++) {
+    const rnd = Math.random();
+    tiles.push({
+      c, r,
+      type: rnd < 0.25 ? 'wheat' : rnd < 0.45 ? 'empty' : rnd < 0.6 ? 'veg' : rnd < 0.72 ? 'sun' : rnd < 0.82 ? 'greenhouse' : 'soil',
+      growth: Math.random(),
+      phase: Math.random() * Math.PI * 2,
+    });
+  }
+}
+
+// Drones
+const drones = Array.from({ length: 5 }, (_, i) => ({
+  x: Math.random() * W,
+  y: Math.random() * H * 0.6 + H * 0.1,
+  vx: (Math.random() - 0.5) * 1.2,
+  vy: (Math.random() - 0.5) * 0.6,
+  size: 8 + Math.random() * 6,
+  trail: []
+}));
+
+function tileColor(type, growth, sim) {
+  if (sim) {
+    const greens = ['#1a4a2e','#1f5c37','#245c38','#1e4a2a','#2a6640'];
+    return greens[Math.floor(Math.random() * greens.length)];
+  }
+  switch(type) {
+    case 'wheat': return growth > 0.7 ? '#4A7A1E' : '#2E5A10';
+    case 'veg': return '#1A5C2E';
+    case 'sun': return '#5A6A10';
+    case 'greenhouse': return '#1A3A5C';
+    case 'empty': return '#1E2E1A';
+    default: return '#2A1A0E';
+  }
+}
+
+function drawTile(tile, t) {
+  const p = iso(tile.c, tile.r);
+  const tw = TILE * 0.65, th = TILE * 0.35;
+  const h3d = 6 + tile.growth * 10;
+  const wobble = Math.sin(t * 0.8 + tile.phase) * 1.2;
+
+  // Top face
+  ctx.beginPath();
+  ctx.moveTo(p.x, p.y + wobble);
+  ctx.lineTo(p.x + tw, p.y - th + wobble);
+  ctx.lineTo(p.x, p.y - th * 2 + wobble);
+  ctx.lineTo(p.x - tw, p.y - th + wobble);
+  ctx.closePath();
+  ctx.fillStyle = tileColor(tile.type, tile.growth, simMode);
+  ctx.fill();
+
+  // Left face (shadow)
+  ctx.beginPath();
+  ctx.moveTo(p.x - tw, p.y - th + wobble);
+  ctx.lineTo(p.x, p.y - th * 2 + wobble);
+  ctx.lineTo(p.x, p.y - th * 2 - h3d + wobble);
+  ctx.lineTo(p.x - tw, p.y - th - h3d + wobble);
+  ctx.closePath();
+  ctx.fillStyle = simMode ? 'rgba(30,100,60,0.6)' : 'rgba(20,40,10,0.6)';
+  ctx.fill();
+
+  // Right face
+  ctx.beginPath();
+  ctx.moveTo(p.x + tw, p.y - th + wobble);
+  ctx.lineTo(p.x, p.y - th * 2 + wobble);
+  ctx.lineTo(p.x, p.y - th * 2 - h3d + wobble);
+  ctx.lineTo(p.x + tw, p.y - th - h3d + wobble);
+  ctx.closePath();
+  ctx.fillStyle = simMode ? 'rgba(50,160,90,0.3)' : 'rgba(40,80,20,0.3)';
+  ctx.fill();
+
+  // Plant/structure on top
+  if (tile.type === 'wheat' && tile.growth > 0.3) {
+    const px = p.x, py = p.y - th * 2 - h3d + wobble;
+    ctx.strokeStyle = simMode ? 'rgba(100,220,140,0.7)' : 'rgba(150,220,80,0.7)';
+    ctx.lineWidth = 1;
+    for (let i = -1; i <= 1; i++) {
+      ctx.beginPath();
+      ctx.moveTo(px + i * 6, py);
+      ctx.lineTo(px + i * 6 + Math.sin(t + tile.phase) * 3, py - 12 * tile.growth);
+      ctx.stroke();
+    }
+  }
+  if (tile.type === 'greenhouse') {
+    ctx.fillStyle = simMode ? 'rgba(100,200,255,0.15)' : 'rgba(100,180,255,0.15)';
+    ctx.strokeStyle = simMode ? 'rgba(100,200,255,0.5)' : 'rgba(100,180,255,0.5)';
+    ctx.lineWidth = 0.5;
+    ctx.beginPath();
+    ctx.moveTo(p.x, p.y - th * 2 - h3d - 14 + wobble);
+    ctx.lineTo(p.x + tw * 0.8, p.y - th - h3d + wobble);
+    ctx.lineTo(p.x - tw * 0.8, p.y - th - h3d + wobble);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+  }
+
+  // Edge highlight
+  ctx.beginPath();
+  ctx.moveTo(p.x, p.y + wobble);
+  ctx.lineTo(p.x + tw, p.y - th + wobble);
+  ctx.lineTo(p.x, p.y - th * 2 + wobble);
+  ctx.lineTo(p.x - tw, p.y - th + wobble);
+  ctx.closePath();
+  ctx.strokeStyle = simMode ? 'rgba(63,191,120,0.25)' : 'rgba(212,137,26,0.2)';
+  ctx.lineWidth = 0.5;
+  ctx.stroke();
+}
+
+function drawDrone(d, t) {
+  d.trail.push({ x: d.x, y: d.y });
+  if (d.trail.length > 15) d.trail.shift();
+
+  // Trail
+  for (let i = 0; i < d.trail.length - 1; i++) {
+    const alpha = i / d.trail.length * 0.3;
+    ctx.strokeStyle = simMode ? `rgba(63,191,120,${alpha})` : `rgba(212,137,26,${alpha})`;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(d.trail[i].x, d.trail[i].y);
+    ctx.lineTo(d.trail[i + 1].x, d.trail[i + 1].y);
+    ctx.stroke();
+  }
+
+  // Body
+  ctx.save();
+  ctx.translate(d.x, d.y);
+  const rot = Math.sin(t * 2 + d.phase || 0) * 0.1;
+  ctx.rotate(rot);
+  ctx.fillStyle = simMode ? 'rgba(63,191,120,0.9)' : 'rgba(212,137,26,0.9)';
+  ctx.beginPath();
+  ctx.arc(0, 0, d.size * 0.4, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Arms + rotors
+  const arms = [[1,1],[1,-1],[-1,1],[-1,-1]];
+  arms.forEach(([ax, ay]) => {
+    ctx.strokeStyle = simMode ? 'rgba(63,191,120,0.6)' : 'rgba(212,137,26,0.6)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(ax * d.size * 0.7, ay * d.size * 0.7);
+    ctx.stroke();
+    ctx.strokeStyle = simMode ? 'rgba(150,255,200,0.8)' : 'rgba(255,220,100,0.8)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(ax * d.size * 0.7, ay * d.size * 0.7, d.size * 0.4, t * 10, t * 10 + Math.PI);
+    ctx.stroke();
+  });
+
+  // Glow
+  const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, d.size * 2);
+  grad.addColorStop(0, simMode ? 'rgba(63,191,120,0.3)' : 'rgba(212,137,26,0.3)');
+  grad.addColorStop(1, 'transparent');
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.arc(0, 0, d.size * 2, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  // Update position
+  d.x += d.vx;
+  d.y += d.vy;
+  d.vx += (Math.random() - 0.5) * 0.1;
+  d.vy += (Math.random() - 0.5) * 0.05;
+  d.vx = Math.max(-2, Math.min(2, d.vx));
+  d.vy = Math.max(-1, Math.min(1, d.vy));
+  if (d.x < 0 || d.x > W) d.vx *= -1;
+  if (d.y < 0 || d.y > H * 0.7) d.vy *= -1;
+}
+
+function drawBackground(t) {
+  // Sky gradient
+  const sky = ctx.createLinearGradient(0, 0, 0, H * 0.6);
+  if (simMode) {
+    sky.addColorStop(0, '#0A1A12');
+    sky.addColorStop(0.5, '#0F2A1A');
+    sky.addColorStop(1, '#122A1C');
+  } else {
+    sky.addColorStop(0, '#0D1A12');
+    sky.addColorStop(0.5, '#101E18');
+    sky.addColorStop(1, '#0F1E12');
+  }
+  ctx.fillStyle = sky;
+  ctx.fillRect(0, 0, W, H);
+
+  // Horizon glow
+  const hx = W / 2, hy = originY - 30;
+  const hgrad = ctx.createRadialGradient(hx, hy, 0, hx, hy, W * 0.5);
+  hgrad.addColorStop(0, simMode ? 'rgba(63,191,120,0.08)' : 'rgba(212,137,26,0.08)');
+  hgrad.addColorStop(1, 'transparent');
+  ctx.fillStyle = hgrad;
+  ctx.fillRect(0, 0, W, H);
+
+  // Stars (sim mode only)
+  if (simMode) {
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    for (let i = 0; i < 40; i++) {
+      const sx = ((i * 137.5 + t * 0.2) % W);
+      const sy = (i * 89.3) % (H * 0.4);
+      const ss = Math.sin(t + i) * 0.5 + 0.5;
+      ctx.globalAlpha = ss * 0.4;
+      ctx.beginPath();
+      ctx.arc(sx, sy, 0.8, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  // Grid scan line (sim mode)
+  if (simMode) {
+    const scanY = (t * 40) % H;
+    const scanGrad = ctx.createLinearGradient(0, scanY - 20, 0, scanY + 20);
+    scanGrad.addColorStop(0, 'transparent');
+    scanGrad.addColorStop(0.5, 'rgba(63,191,120,0.06)');
+    scanGrad.addColorStop(1, 'transparent');
+    ctx.fillStyle = scanGrad;
+    ctx.fillRect(0, scanY - 20, W, 40);
+  }
+}
+
+function render(ts) {
+  time = ts * 0.001;
+  ctx.clearRect(0, 0, W, H);
+  drawBackground(time);
+
+  // Sort tiles for painter's algorithm
+  const sorted = [...tiles].sort((a, b) => (a.c + a.r) - (b.c + b.r));
+  sorted.forEach(tile => drawTile(tile, time));
+  drones.forEach(d => drawDrone(d, time));
+
+  requestAnimationFrame(render);
+}
+requestAnimationFrame(render);
+
+// ─── UI LOGIC ─────────────────────────────────────────────────────────────────
+const toggleSwitch = document.getElementById('toggleSwitch');
+const modeLabel = document.getElementById('modeLabel');
+const simOverlay = document.getElementById('sim-overlay');
+const simLabel = document.getElementById('sim-label');
+
+toggleSwitch.addEventListener('click', () => {
+  simMode = !simMode;
+  toggleSwitch.classList.toggle('sim', simMode);
+  simOverlay.classList.toggle('active', simMode);
+  simLabel.classList.toggle('active', simMode);
+  modeLabel.textContent = simMode ? 'SIMULATEUR VIRTUEL' : 'GESTION TERRAIN';
+  showNotif(simMode ? '🎮 Simulation Active' : '🌾 Mode Terrain', simMode ? 'Hypothèses activées' : 'Données réelles connectées');
+});
+
+function setView(v) {
+  document.querySelectorAll('.hud-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('view' + v.charAt(0).toUpperCase() + v.slice(1)).classList.add('active');
+  const metrics = {
+    terrain: ['847', 'TONNES / SAISON'],
+    drones: ['12', 'DRONES ACTIFS'],
+    ia: ['+12.4%', 'PRÉDICTION IA'],
+    bio: ['4', 'SOUCHES EN DEV']
+  };
+  const m = metrics[v] || metrics.terrain;
+  document.getElementById('mainMetric').textContent = m[0];
+}
+
+function selectZone(i) {
+  document.querySelectorAll('.farm-zone').forEach((z, idx) => z.classList.toggle('active', idx === i));
+  const names = ['Champ Nord — Blé', 'Serre Alpha', 'Parcelle B', 'Pépinière IA-9', 'Élevage Sector 3', 'Vignoble Omega'];
+  showNotif('📍 Zone Sélectionnée', names[i] + ' — En inspection');
+}
+
+// Notifications
+let notifTimer;
+function showNotif(title, sub) {
+  const n = document.getElementById('notif');
+  document.getElementById('notif-title').textContent = title;
+  document.getElementById('notif-sub').textContent = sub;
+  n.classList.add('show');
+  clearTimeout(notifTimer);
+  notifTimer = setTimeout(() => n.classList.remove('show'), 3200);
+}
+
+// ── MODALS ──
+const modalData = {
+  academy: {
+    title: 'ACADÉMIE TERRA-TECH',
+    sub: 'MÉTIERS DE SCIENCE-FICTION AGRICOLE',
+    html: () => `
+      <div class="metier-card active-job" onclick="showNotif('🤖 Formation','Ingénieur Robotique — Module 7 en cours')">
+        <div class="metier-top">
+          <div class="metier-title">🤖 Ingénieur en Robotique Agricole</div>
+          <div class="metier-lvl">NV 3 ✓</div>
+        </div>
+        <div class="metier-desc">Gestion des drones autonomes, moissonneuses intelligentes et robots de triage. Maîtrisez la flotte de machines pour optimiser chaque récolte à la milliseconde.</div>
+      </div>
+      <div class="metier-card" onclick="showNotif('🧠 Formation','Développeur IA — Accès débloqué')">
+        <div class="metier-top">
+          <div class="metier-title">🧠 Développeur d'IA de Récolte</div>
+          <div class="metier-lvl">NV 2</div>
+        </div>
+        <div class="metier-desc">Concevez des algorithmes de prédiction de rendement basés sur le machine learning. Intégrez météo, sol et génétique pour anticiper les crises avant qu'elles surviennent.</div>
+      </div>
+      <div class="metier-card" onclick="showNotif('🌍 Formation','Terraformation — Certification disponible')">
+        <div class="metier-top">
+          <div class="metier-title">🌍 Ingénieur en Terraformation de Sol</div>
+          <div class="metier-lvl">NV 1</div>
+        </div>
+        <div class="metier-desc">Restaurez les biomes dégradés par des techniques de biofertilisation, compostage moléculaire et inoculation fongique. Transformez des déserts en terres fertiles.</div>
+      </div>
+      <div class="metier-card" onclick="showNotif('🧬 Formation','Bio-Design — Prérequis manquant')">
+        <div class="metier-top">
+          <div class="metier-title">🧬 Bio-Designer Synthétique</div>
+          <div class="metier-lvl">VERROUILLÉ</div>
+        </div>
+        <div class="metier-desc">Créez des semences optimisées par édition génomique CRISPR-Agri. Concevez des variétés résistantes aux pathogènes, à la sécheresse et aux polluants du sol.</div>
+      </div>
+    `
+  },
+  grimoire: {
+    title: 'GRIMOIRE DES SEMENCES & REMÈDES',
+    sub: 'PROTOCOLES CERTIFIÉS — SOURCES SCIENTIFIQUES',
+    html: () => `
+      <div class="grimoire-entry">
+        <div class="g-header">
+          <div class="g-name">🌱 Blé Résistant à la Rouille</div>
+          <div class="g-tag">SEMENCE</div>
+        </div>
+        <div class="g-desc">Variété <em>Triticum aestivum</em> modifiée pour la résistance aux champignons <em>Puccinia</em>. Rendement +23% en conditions arides.</div>
+        <div class="g-protocol">📋 PROTOCOLE: Semis à 2–3 cm de profondeur · Espacement 15 cm · pH sol 6.0–7.5 · Arrosage 35 mm/semaine · Fertilisation NPK 20-10-10 au tallage · Source: INRAE 2024</div>
+      </div>
+      <div class="grimoire-entry">
+        <div class="g-header">
+          <div class="g-name">🌿 Restauration de Sol Acide</div>
+          <div class="g-tag soil">SOL</div>
+        </div>
+        <div class="g-desc">Protocole de remontée du pH par chaulage calcique et inoculation de mycorhizes <em>Glomus intraradices</em>. Récupération de biome en 3–6 mois.</div>
+        <div class="g-protocol">📋 PROTOCOLE: Analyse pH initial · Apport calcaire 2 T/ha · Repos 21 jours · Inoculation fongique 500 g/ha · Réévaluation pH J+30 · Source: FAO Soil Health 2023</div>
+      </div>
+      <div class="grimoire-entry">
+        <div class="g-header">
+          <div class="g-name">🐄 Soins Bovins — Fièvre Q</div>
+          <div class="g-tag animal">ANIMAL</div>
+        </div>
+        <div class="g-desc">Traitement de la coxiellose bovine (<em>Coxiella burnetii</em>). Protocole d'isolement, antibio et biosécurité pour prévenir la transmission intercheptel.</div>
+        <div class="g-protocol">📋 PROTOCOLE: Isolement immédiat · Doxycycline 10 mg/kg/j pendant 14 j · Désinfection litière · Notification obligatoire · Vaccination troupeau sain · Source: ANSES 2024</div>
+      </div>
+      <div class="grimoire-entry">
+        <div class="g-header">
+          <div class="g-name">☀️ Tournesol Haute Densité</div>
+          <div class="g-tag">SEMENCE</div>
+        </div>
+        <div class="g-desc">Cultivar <em>Helianthus annuus</em> HD-7 sélectionné pour huile à haute teneur en oméga-9. Résistant à <em>Sclerotinia sclerotiorum</em>.</div>
+        <div class="g-protocol">📋 PROTOCOLE: Semis J+10°C sol · 60 000 plants/ha · Profondeur 4 cm · Herbicide pré-levée · Irrigation 40 mm à floraison · Récolte à 14% humidité · Source: Terres Inovia 2024</div>
+      </div>
+    `
+  },
+  harvest: {
+    title: 'HARVEST MASTERY',
+    sub: 'PROGRESSION & RÉCOMPENSES',
+    html: () => `
+      <div class="xp-card" style="margin-bottom:16px">
+        <div class="xp-label">NIVEAU ACTUEL</div>
+        <div class="xp-name" style="font-size:20px">⚔️ MAÎTRE DE LA TERRE — NV. 14</div>
+        <div class="xp-bar-bg" style="height:10px; margin:12px 0"><div class="xp-bar-fill" style="width:68%"></div></div>
+        <div class="xp-row"><span style="font-size:12px">6 800 / 10 000 XP vers Niv. 15 "Seigneur des Récoltes"</span></div>
+      </div>
+      <div class="panel-title" style="margin-bottom:12px">⬡ DERNIÈRES ACTIONS XP</div>
+      ${[
+        ['🌾 Récolte complète Champ Nord', '+350 XP', 'il y a 2h'],
+        ['🚁 Drone mission accomplie', '+120 XP', 'il y a 5h'],
+        ['🧬 Nouvelle semence créée', '+500 XP', 'hier'],
+        ['🌍 Sol restauré Parcelle C', '+280 XP', 'il y a 2 jours'],
+        ['📊 Prédiction IA correcte à 97%', '+200 XP', 'il y a 3 jours']
+      ].map(([a, x, t]) => `
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:10px; background:var(--glass); border:1px solid var(--border); border-radius:8px; margin-bottom:6px; font-size:12px">
+          <span>${a}</span>
+          <span style="color:var(--amber-light); font-family:'Orbitron',monospace; font-weight:700">${x}</span>
+          <span style="color:var(--text-dim); font-size:10px">${t}</span>
+        </div>
+      `).join('')}
+      <div class="panel-title" style="margin:16px 0 12px">⬡ PROCHAINS BADGES</div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px">
+        ${[
+          ['🤖 Maître Robotique', '3 missions restantes', '30%'],
+          ['💧 Expert en Irrigation', '1 action restante', '85%'],
+          ['🌊 Hydro-Fermier', '5 cycles d\'eau', '20%'],
+          ['☀️ Maître Solaire', '2 panels installés', '60%']
+        ].map(([b, d, p]) => `
+          <div style="background:var(--glass); border:1px solid var(--border); border-radius:10px; padding:12px">
+            <div style="font-size:14px; margin-bottom:4px">${b}</div>
+            <div style="font-size:10px; color:var(--text-dim); margin-bottom:8px">${d}</div>
+            <div style="height:4px; background:var(--slate-light); border-radius:2px">
+              <div style="height:100%; width:${p}; background:linear-gradient(90deg,var(--amber),var(--amber-light)); border-radius:2px"></div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `
+  },
+  inventory: {
+    title: 'INVENTAIRE FERME',
+    sub: 'STOCKS EN TEMPS RÉEL',
+    html: () => `
+      ${[
+        ['🌾 Blé d\'hiver', '847 T', '86%', 'green'],
+        ['🌻 Tournesol', '234 T', '95%', 'green'],
+        ['🫘 Légumes mixtes', '45 T', '45%', 'amber'],
+        ['🌱 Semences (stock)', '2.3 T', '60%', 'amber'],
+        ['💧 Eau (réserves)', '12,400 m³', '78%', 'green'],
+        ['⚗️ Engrais bio', '8.7 T', '35%', 'red'],
+        ['🔋 Énergie solaire', '94 kWh', '94%', 'green'],
+        ['🧪 Traitements phyto', '340 L', '28%', 'red']
+      ].map(([name, qty, pct, cls]) => `
+        <div style="background:var(--glass); border:1px solid var(--border); border-radius:10px; padding:12px; margin-bottom:8px">
+          <div style="display:flex; justify-content:space-between; margin-bottom:8px">
+            <span style="font-size:13px; font-weight:600">${name}</span>
+            <span style="font-family:'Orbitron',monospace; font-size:12px; color:var(--amber-light)">${qty}</span>
+          </div>
+          <div class="zone-bar"><div class="zone-fill ${cls}" style="width:${pct}"></div></div>
+        </div>
+      `).join('')}
+    `
+  },
+  drones: {
+    title: 'FLOTTE DE DRONES',
+    sub: 'GESTION & MISSIONS EN COURS',
+    html: () => `
+      ${Array.from({length:12}, (_,i) => {
+        const statuses = ['MISSION','MISSION','EN VOL','RECHARGE','EN VOL','STANDBY','MISSION','EN VOL','RECHARGE','STANDBY','MISSION','EN VOL'];
+        const zones = ['Champ Nord','Serre Alpha','Parcelle B','BASE','Vignoble','BASE','Pépinière','Champ Nord','BASE','BASE','Sector 3','Parcelle B'];
+        const cols = {MISSION:'var(--emerald-light)','EN VOL':'var(--amber-light)',RECHARGE:'#7BBDE8',STANDBY:'var(--text-dim)'};
+        return `
+          <div style="background:var(--glass); border:1px solid var(--border); border-radius:10px; padding:12px; margin-bottom:6px; display:flex; align-items:center; gap:12px; cursor:pointer" onclick="showNotif('🚁 Drone X${i+1}','${zones[i]} — ${statuses[i]}')">
+            <span style="font-size:22px" class="drone-icon">🚁</span>
+            <div style="flex:1">
+              <div style="font-family:'Orbitron',monospace; font-size:12px; color:var(--amber)">DRONE X${i+1}</div>
+              <div style="font-size:10px; color:var(--text-dim)">${zones[i]}</div>
+            </div>
+            <div style="font-size:10px; letter-spacing:2px; color:${cols[statuses[i]]}; background:rgba(0,0,0,0.3); border-radius:6px; padding:3px 10px; border:1px solid ${cols[statuses[i]]}44">${statuses[i]}</div>
+            <div style="font-family:'Orbitron',monospace; font-size:12px; color:var(--emerald-light)">${Math.floor(Math.random()*100)}%🔋</div>
+          </div>
+        `
+      }).join('')}
+    `
+  },
+  settings: {
+    title: 'PARAMÈTRES SYSTÈME',
+    sub: 'CONFIGURATION TERRA-TECH OS',
+    html: () => `
+      ${[
+        ['🌐 Connectivité réseau','Synchronisation cloud active','ACTIF'],
+        ['📡 Capteurs IoT','247 capteurs terrain connectés','247/247'],
+        ['🤖 IA Prédiction','Modèle GPT-Agri v3.2 chargé','PRÊT'],
+        ['☁️ Météo API','Données METEO-FRANCE temps réel','LIVE'],
+        ['🔒 Sécurité','Chiffrement AES-256 activé','SÉCURISÉ'],
+        ['💾 Sauvegarde','Dernière sync: il y a 4 min','AUTO'],
+      ].map(([t, d, s]) => `
+        <div style="background:var(--glass); border:1px solid var(--border); border-radius:10px; padding:14px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center">
+          <div>
+            <div style="font-size:13px; font-weight:600">${t}</div>
+            <div style="font-size:10px; color:var(--text-dim); margin-top:3px">${d}</div>
+          </div>
+          <div style="font-size:10px; letter-spacing:2px; color:var(--emerald-light); background:rgba(42,122,79,0.15); border:1px solid rgba(63,191,120,0.3); border-radius:6px; padding:3px 10px">${s}</div>
+        </div>
+      `).join('')}
+    `
+  }
+};
+
+function openModal(key) {
+  const d = modalData[key];
+  if (!d) return;
+  document.getElementById('modal-body').innerHTML = `
+    <div class="modal-title">${d.title}</div>
+    <div class="modal-sub">${d.sub}</div>
+    <button class="modal-close" onclick="closeModal()">✕ FERMER</button>
+    ${d.html()}
+  `;
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+function closeModal(e) {
+  if (!e || e.target === document.getElementById('modal-overlay')) {
+    document.getElementById('modal-overlay').classList.remove('open');
+  }
+}
+
+function navTo(section) {
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  event.currentTarget.classList.add('active');
+}
+
+// Auto notifications
+setTimeout(() => showNotif('🌱 Alerte Germination', 'Pépinière IA-9 — Phase II démarrée'), 3000);
+setTimeout(() => showNotif('⚠️ Sécheresse détectée', 'Serre Alpha — Arrosage requis'), 9000);
+setTimeout(() => showNotif('🏆 +350 XP obtenus!', 'Récolte Champ Nord complète'), 15000);
+setInterval(() => {
+  const msgs = [
+    ['🚁 Drone X7', 'Mission terminée — Champ Nord'],
+    ['🌡️ Température', 'Serre B: 24°C — Optimal'],
+    ['📊 IA Update', 'Prédiction recalibrée +0.3%'],
+    ['💧 Irrigation', 'Cycle automatique activé'],
+  ];
+  const m = msgs[Math.floor(Math.random() * msgs.length)];
+  showNotif(m[0], m[1]);
+}, 22000);
+</script>
+</body>
+</html>

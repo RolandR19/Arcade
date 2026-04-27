@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pac-Man 3D - Battle</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #000;
+            color: #fff;
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+            cursor: none;
+        }
+        #gameContainer {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+        #ui {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 100;
+            font-size: 24px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+        }
+        #instructions {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 100;
+            font-size: 16px;
+            text-align: right;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+        }
+        #crosshair {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 20px;
+            height: 20px;
+            border: 2px solid #ffff00;
+            border-radius: 50%;
+            z-index: 50;
+            opacity: 0.7;
+        }
+        #gameOver {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 200;
+            text-align: center;
+            background: rgba(0,0,0,0.9);
+            padding: 40px;
+            border-radius: 15px;
+            border: 3px solid #ffff00;
+            display: none;
+        }
+        button {
+            background: #ffff00;
+            color: #000;
+            border: none;
+            padding: 15px 30px;
+            font-size: 18px;
+            border-radius: 10px;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+        button:hover {
+            background: #fff;
+        }
+        #startScreen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(45deg, #000033, #000066);
+            z-index: 300;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+        #title {
+            font-size: 72px;
+            color: #ffff00;
+            margin-bottom: 30px;
+            text-shadow: 5px 5px 10px rgba(0,0,0,0.8);
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <div id="startScreen">
+            <div id="title">PAC-MAN BATTLE</div>
+            <p style="font-size: 20px; margin-bottom: 30px;">Cliquez pour commencer le combat!</p>
+            <button onclick="startGame()">COMMENCER</button>
+        </div>
+        
+        <div id="ui">
+            <div>Score: <span id="score">0</span></div>
+            <div>Vies: <span id="lives">3</span></div>
+        </div>
+        
+        <div id="instructions">
+            <div>WASD ou Flèches: Bouger</div>
+            <div>Souris: Regarder autour</div>
+            <div>Espace: Tirer un missile</div>
+        </div>
+        
+        <div id="crosshair"></div>
+        
+        <div id="gameOver">
+            <h2 id="gameOverText">Game Over!</h2>
+            <p>Score final: <span id="finalScore">0</span></p>
+            <button onclick="restartGame()">Rejouer</button>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        let scene, camera, renderer;
+        let ghosts = [];
+        let missiles = [];
+        let score = 0;
+        let lives = 3;
+        let gameRunning = false;
+        let gameStarted = false;
+        let keys = {};
+        let moveSpeed = 0.15;
+        let lastShootTime = 0;
+        const SHOOT_COOLDOWN = 300; // 300ms entre chaque tir
+        const ARENA_SIZE = 60;
+        const NUM_GHOSTS = 5;
+
+        function startGame() {
+            document.getElementById('startScreen').style.display = 'none';
+            gameStarted = true;
+            gameRunning = true;
+            
+            document.body.requestPointerLock();
+            
+            init();
+        }
+
+        function init() {
+            scene = new THREE.Scene();
+            scene.fog = new THREE.Fog(0x000033, 10, 50);
+            
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 100);
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setClearColor(0x000033);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            document.getElementById('gameContainer').appendChild(renderer.domElement);
+
+            const ambientLight = new THREE.AmbientLight(0x404080, 0.4);
+            scene.add(ambientLight);
+            
+            const directionalLight = new THREE.DirectionalLight(0x6666ff, 0.8);
+            directionalLight.position.set(10, 20, 5);
+            directionalLight.castShadow = true;
+            directionalLight.shadow.mapSize.width = 2048;
+            directionalLight.shadow.mapSize.height = 2048;
+            scene.add(directionalLight);
+
+            const playerLight = new THREE.PointLight(0xffff88, 1, 15);
+            playerLight.position.set(0, 2, 0);
+            camera.add(playerLight);
+            scene.add(camera);
+
+            createArena();
+            createPlayer();
+            for(let i = 0; i < NUM_GHOSTS; i++) {
+                createGhost();
+            }
+
+            document.addEventListener('keydown', onKeyDown);
+            document.addEventListener('keyup', onKeyUp);
+            document.addEventListener('mousemove', onMouseMove);
+            
+            document.addEventListener('click', () => {
+                if (!document.pointerLockElement) {
+                    document.body.requestPointerLock();
+                }
+            });
+
+            window.addEventListener('resize', onWindowResize);
+
+            animate();
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function createArena() {
+            // Sol
+            const floorGeometry = new THREE.PlaneGeometry(ARENA_SIZE * 2, ARENA_SIZE * 2);
+            const floorMaterial = new THREE.MeshLambertMaterial({ 
+                color: 0x111133,
+                emissive: 0x000011
+            });
+            const floor = new THREE.Mesh(floorGeometry, floorMaterial);
+            floor.rotation.x = -Math.PI / 2;
+            floor.receiveShadow = true;
+            scene.add(floor);
+        }
+
+        function createPlayer() {
+            camera.position.set(0, 1.5, 0);
+            camera.rotation.order = 'YXZ';
+        }
+
+        function createGhost() {
+            const ghostColors = [0xff0000, 0x00ffff, 0xffc0cb, 0xffa500, 0x00ff00, 0x8800ff, 0xeeeeee];
+            const randomColor = ghostColors[Math.floor(Math.random() * ghostColors.length)];
+
+            const ghostGroup = new THREE.Group();
+            
+            const bodyGeometry = new THREE.CylinderGeometry(0.8, 0.8, 1.6, 8);
+            const bodyMaterial = new THREE.MeshLambertMaterial({ 
+                color: randomColor,
+                emissive: randomColor,
+                emissiveIntensity: 0.2
+            });
+            const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+            body.position.y = 0.8;
+            
+            const eyeGeometry = new THREE.SphereGeometry(0.15, 8, 8);
+            const eyeMaterial = new THREE.MeshLambertMaterial({ color: 0xffffff });
+            
+            const leftEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
+            leftEye.position.set(-0.3, 1.2, 0.6);
+            const rightEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
+            rightEye.position.set(0.3, 1.2, 0.6);
+            
+            const pupilGeometry = new THREE.SphereGeometry(0.08, 6, 6);
+            const pupilMaterial = new THREE.MeshLambertMaterial({ color: 0x000000 });
+            
+            const leftPupil = new THREE.Mesh(pupilGeometry, pupilMaterial);
+            leftPupil.position.set(-0.3, 1.2, 0.7);
+            const rightPupil = new THREE.Mesh(pupilGeometry, pupilMaterial);
+            rightPupil.position.set(0.3, 1.2, 0.7);
+
+            ghostGroup.add(body);
+            ghostGroup.add(leftEye);
+            ghostGroup.add(rightEye);
+            ghostGroup.add(leftPupil);
+            ghostGroup.add(rightPupil);
+            
+            // Position aléatoire sur le terrain
+            ghostGroup.position.set(
+                (Math.random() - 0.5) * ARENA_SIZE,
+                0,
+                (Math.random() - 0.5) * ARENA_SIZE
+            );
+            ghostGroup.castShadow = true;
+            
+            ghostGroup.userData = {
+                speed: 0.08 + Math.random() * 0.04
+            };
+            
+            scene.add(ghostGroup);
+            ghosts.push(ghostGroup);
+        }
+
+        function createMissile() {
+            const missileGeometry = new THREE.SphereGeometry(0.2, 8, 8);
+            const missileMaterial = new THREE.MeshLambertMaterial({
+                color: 0xffff00,
+                emissive: 0xffff00,
+                emissiveIntensity: 1
+            });
+            const missile = new THREE.Mesh(missileGeometry, missileMaterial);
+            
+            // Position de départ du missile
+            missile.position.copy(camera.position);
+            
+            // Direction du missile
+            const direction = new THREE.Vector3();
+            camera.getWorldDirection(direction);
+            missile.userData.velocity = direction.normalize().multiplyScalar(1.0); // Vitesse du missile
+            
+            scene.add(missile);
+            missiles.push(missile);
+        }
+
+        function onKeyDown(event) {
+            keys[event.key.toLowerCase()] = true;
+
+            if (event.key.toLowerCase() === ' ') {
+                const now = Date.now();
+                if (now - lastShootTime > SHOOT_COOLDOWN) {
+                    createMissile();
+                    lastShootTime = now;
+                }
+            }
+        }
+
+        function onKeyUp(event) {
+            keys[event.key.toLowerCase()] = false;
+        }
+
+        function onMouseMove(event) {
+            if (!document.pointerLockElement || !gameRunning) return;
+            
+            camera.rotation.y -= event.movementX * 0.002;
+            camera.rotation.x -= event.movementY * 0.002;
+            
+            camera.rotation.x = Math.max(-Math.PI/2, Math.min(Math.PI/2, camera.rotation.x));
+        }
+
+        function movePlayer() {
+            if (!gameRunning) return;
+
+            const forward = new THREE.Vector3();
+            camera.getWorldDirection(forward);
+            forward.y = 0;
+            forward.normalize();
+            
+            const right = new THREE.Vector3().crossVectors(camera.up, forward).normalize();
+            
+            let moveVector = new THREE.Vector3(0, 0, 0);
+
+            if (keys['w'] || keys['arrowup']) {
+                moveVector.add(forward.multiplyScalar(moveSpeed));
+            }
+            if (keys['s'] || keys['arrowdown']) {
+                moveVector.add(forward.multiplyScalar(-moveSpeed));
+            }
+            if (keys['a'] || keys['arrowleft']) {
+                moveVector.add(right.multiplyScalar(moveSpeed));
+            }
+            if (keys['d'] || keys['arrowright']) {
+                moveVector.add(right.multiplyScalar(-moveSpeed));
+            }
+
+            const newPosition = camera.position.clone().add(moveVector);
+
+            // Vérification des limites de l'arène
+            if (Math.abs(newPosition.x) < ARENA_SIZE && Math.abs(newPosition.z) < ARENA_SIZE) {
+                 camera.position.copy(newPosition);
+            }
+        }
+
+        function moveGhosts() {
+            if (!gameRunning) return;
+
+            ghosts.forEach(ghost => {
+                const userData = ghost.userData;
+                const playerPos = camera.position;
+
+                let targetDirection = new THREE.Vector3();
+                targetDirection.subVectors(playerPos, ghost.position).normalize();
+
+                const speed = userData.speed;
+                
+                const newX = ghost.position.x + targetDirection.x * speed;
+                const newZ = ghost.position.z + targetDirection.z * speed;
+
+                ghost.position.x = newX;
+                ghost.position.z = newZ;
+
+                ghost.position.y = Math.sin(Date.now() * 0.005 + ghost.position.x) * 0.3;
+                
+                const angle = Math.atan2(targetDirection.x, targetDirection.z);
+                ghost.rotation.y = angle;
+            });
+        }
+
+        function moveMissiles() {
+            if (!gameRunning) return;
+
+            for (let i = missiles.length - 1; i >= 0; i--) {
+                const missile = missiles[i];
+                missile.position.add(missile.userData.velocity);
+
+                // Si le missile sort des limites, il est retiré
+                if (Math.abs(missile.position.x) > ARENA_SIZE || Math.abs(missile.position.z) > ARENA_SIZE) {
+                    scene.remove(missile);
+                    missiles.splice(i, 1);
+                }
+            }
+        }
+
+        function checkCollisions() {
+            if (!gameRunning) return;
+
+            const playerPos = camera.position;
+
+            // Collisions fantômes-joueur
+            for(let i = ghosts.length - 1; i >= 0; i--) {
+                const ghost = ghosts[i];
+                const distance = playerPos.distanceTo(ghost.position);
+                if (distance < 2.5) { 
+                    lives--;
+                    document.getElementById('lives').textContent = lives;
+                    
+                    if (lives <= 0) {
+                        gameOver(false);
+                    } else {
+                        camera.position.set(0, 1.5, 0);
+                        document.getElementById('crosshair').style.borderColor = '#ff0000';
+                        setTimeout(() => {
+                            document.getElementById('crosshair').style.borderColor = '#ffff00';
+                        }, 500);
+                    }
+                }
+            }
+
+            // Collisions missiles-fantômes
+            for(let i = missiles.length - 1; i >= 0; i--) {
+                const missile = missiles[i];
+                for (let j = ghosts.length - 1; j >= 0; j--) {
+                    const ghost = ghosts[j];
+                    const distance = missile.position.distanceTo(ghost.position);
+                    if (distance < 2.0) { // Collision détectée
+                        // Retirer le missile et le fantôme
+                        scene.remove(missile);
+                        missiles.splice(i, 1);
+                        scene.remove(ghost);
+                        ghosts.splice(j, 1);
+
+                        // Augmenter le score et faire réapparaître un nouveau fantôme
+                        score += 100;
+                        document.getElementById('score').textContent = score;
+                        createGhost();
+                        break; // S'arrêter après la première collision
+                    }
+                }
+            }
+        }
+
+        function gameOver() {
+            gameRunning = false;
+            document.getElementById('finalScore').textContent = score;
+            document.getElementById('gameOverText').textContent = 'GAME OVER';
+            document.getElementById('gameOver').style.display = 'block';
+            
+            document.exitPointerLock();
+        }
+
+        function restartGame() {
+            while (scene.children.length > 0) {
+                scene.remove(scene.children[0]);
+            }
+            
+            ghosts = [];
+            missiles = [];
+            score = 0;
+            lives = 3;
+            keys = {};
+            
+            document.getElementById('score').textContent = score;
+            document.getElementById('lives').textContent = lives;
+            document.getElementById('gameOver').style.display = 'none';
+            
+            gameRunning = true;
+            
+            camera.position.set(0, 1.5, 0);
+            camera.rotation.set(0, 0, 0);
+            
+            const ambientLight = new THREE.AmbientLight(0x404080, 0.4);
+            scene.add(ambientLight);
+            
+            const directionalLight = new THREE.DirectionalLight(0x6666ff, 0.8);
+            directionalLight.position.set(10, 20, 5);
+            directionalLight.castShadow = true;
+            directionalLight.shadow.mapSize.width = 2048;
+            directionalLight.shadow.mapSize.height = 2048;
+            scene.add(directionalLight);
+
+            const playerLight = new THREE.PointLight(0xffff88, 1, 15);
+            playerLight.position.set(0, 2, 0);
+            camera.add(playerLight);
+            scene.add(camera);
+
+            createArena();
+            for(let i = 0; i < NUM_GHOSTS; i++) {
+                createGhost();
+            }
+            
+            document.body.requestPointerLock();
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            if (gameRunning) {
+                movePlayer();
+                moveGhosts();
+                moveMissiles();
+                checkCollisions();
+            }
+            
+            renderer.render(scene, camera);
+        }
+    </script>
+</body>
+</html>

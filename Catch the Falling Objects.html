@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Catch the Falling Objects</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f0f0f0;
+            font-family: Arial, sans-serif;
+        }
+        canvas {
+            border: 1px solid #000;
+            background-color: #fff;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas" width="400" height="600"></canvas>
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let basketX = canvas.width / 2 - 25; // Initial position of the basket
+        const basketWidth = 50; // Width of the basket
+        const basketHeight = 20; // Height of the basket
+        let score = 0; // Player's score
+        let fallingObjects = []; // Array to hold falling objects
+        let gameDuration = 30; // Game duration in seconds
+        let gameInterval; // Interval for game updates
+        let timerInterval; // Interval for the timer
+
+        // Function to move the basket based on keyboard input
+        function moveBasket(event) {
+            if (event.key === 'ArrowLeft' && basketX > 0) {
+                basketX -= 20; // Move left
+            } else if (event.key === 'ArrowRight' && basketX < canvas.width - basketWidth) {
+                basketX += 20; // Move right
+            }
+        }
+
+        // Function to create a new falling object
+        function createFallingObject() {
+            const x = Math.random() * (canvas.width - 20); // Random x position
+            fallingObjects.push({ x: x, y: 0, width: 20, height: 20 }); // Add new object
+        }
+
+        // Function to update the game state
+        function update() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear the canvas
+            ctx.fillStyle = 'blue';
+            ctx.fillRect(basketX, canvas.height - basketHeight, basketWidth, basketHeight); // Draw the basket
+
+            // Update and draw falling objects
+            for (let i = 0; i < fallingObjects.length; i++) {
+                const obj = fallingObjects[i];
+                obj.y += 5; // Falling speed
+                ctx.fillStyle = 'red';
+                ctx.fillRect(obj.x, obj.y, obj.width, obj.height); // Draw the falling object
+
+                // Check for collision with the basket
+                if (obj.y + obj.height > canvas.height - basketHeight &&
+                    obj.x + obj.width > basketX &&
+                    obj.x < basketX + basketWidth) {
+                    score++; // Increase score
+                    fallingObjects.splice(i, 1); // Remove caught object
+                    i--; // Adjust index
+                } else if (obj.y > canvas.height) {
+                    fallingObjects.splice(i, 1); // Remove object if it falls off screen
+                    i--; // Adjust index
+                }
+            }
+
+            // Display the score
+            ctx.fillStyle = 'black';
+            ctx.fillText('Score: ' + score, 10, 20);
+        }
+
+        // Function to start the game
+        function startGame() {
+            document.addEventListener('keydown', moveBasket); // Listen for key presses
+            gameInterval = setInterval(update, 100); // Update game every 100ms
+            timerInterval = setInterval(() => {
+                gameDuration--; // Decrease game duration
+                if (gameDuration <= 0) {
+                    clearInterval(gameInterval); // Stop game updates
+                    clearInterval(timerInterval); // Stop timer
+                    alert('Game Over! Your score: ' + score); // Show final score
+                }
+            }, 1000);
+            setInterval(createFallingObject, 1000); // Create a new object every second
+        }
+
+        startGame(); // Start the game
+    </script>
+</body>
+</html>

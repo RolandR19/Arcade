@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pac-Man 3D</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #000;
+            color: #fff;
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+        }
+        #gameContainer {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+        #ui {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 100;
+            font-size: 20px;
+        }
+        #instructions {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 100;
+            font-size: 16px;
+            text-align: right;
+        }
+        #gameOver {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 200;
+            text-align: center;
+            background: rgba(0,0,0,0.8);
+            padding: 30px;
+            border-radius: 10px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <div id="ui">
+            <div>Score: <span id="score">0</span></div>
+            <div>Vies: <span id="lives">3</span></div>
+        </div>
+        <div id="instructions">
+            <div>Utilisez les flèches pour bouger</div>
+            <div>Collectez tous les points jaunes!</div>
+        </div>
+        <div id="gameOver">
+            <h2 id="gameOverText">Game Over!</h2>
+            <p>Score final: <span id="finalScore">0</span></p>
+            <button onclick="restartGame()">Rejouer</button>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        let scene, camera, renderer;
+        let pacman, ghosts = [];
+        let maze = [];
+        let dots = [];
+        let score = 0;
+        let lives = 3;
+        let gameRunning = true;
+        let keys = {};
+        
+        const MAZE_SIZE = 15;
+        const CELL_SIZE = 2;
+        
+        // Labyrinthe simple (1 = mur, 0 = chemin avec point, 2 = chemin sans point)
+        const mazeLayout = [
+            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+            [1,0,0,0,0,0,0,1,0,0,0,0,0,0,1],
+            [1,0,1,1,0,1,0,1,0,1,0,1,1,0,1],
+            [1,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+            [1,0,1,0,1,1,1,1,1,1,1,0,1,0,1],
+            [1,0,0,0,0,0,0,1,0,0,0,0,0,0,1],
+            [1,1,1,0,1,1,2,2,2,1,1,0,1,1,1],
+            [1,0,0,0,0,0,2,2,2,0,0,0,0,0,1],
+            [1,1,1,0,1,1,2,2,2,1,1,0,1,1,1],
+            [1,0,0,0,0,0,0,1,0,0,0,0,0,0,1],
+            [1,0,1,0,1,1,1,1,1,1,1,0,1,0,1],
+            [1,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+            [1,0,1,1,0,1,0,1,0,1,0,1,1,0,1],
+            [1,0,0,0,0,0,0,1,0,0,0,0,0,0,1],
+            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+        ];
+
+        function init() {
+            // Configuration de la scène
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setClearColor(0x000033);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            document.getElementById('gameContainer').appendChild(renderer.domElement);
+
+            // Éclairage
+            const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
+            scene.add(ambientLight);
+            
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(10, 10, 5);
+            directionalLight.castShadow = true;
+            scene.add(directionalLight);
+
+            createMaze();
+            createPacman();
+            createGhosts();
+            createDots();
+
+            // Position de la caméra
+            camera.position.set(0, 25, 15);
+            camera.lookAt(0, 0, 0);
+
+            // Contrôles clavier
+            document.addEventListener('keydown', onKeyDown);
+            document.addEventListener('keyup', onKeyUp);
+
+            animate();
+        }
+
+        function createMaze() {
+            const wallMaterial = new THREE.MeshLambertMaterial({ color: 0x0000ff });
+            
+            for (let row = 0; row < MAZE_SIZE; row++) {
+                for (let col = 0; col < MAZE_SIZE; col++) {
+                    if (mazeLayout[row][col] === 1) {
+                        const wallGeometry = new THREE.BoxGeometry(CELL_SIZE, CELL_SIZE, CELL_SIZE);
+                        const wall = new THREE.Mesh(wallGeometry, wallMaterial);
+                        wall.position.set(
+                            (col - MAZE_SIZE/2) * CELL_SIZE,
+                            CELL_SIZE/2,
+                            (row - MAZE_SIZE/2) * CELL_SIZE
+                        );
+                        wall.castShadow = true;
+                        wall.receiveShadow = true;
+                        scene.add(wall);
+                        maze.push(wall);
+                    }
+                }
+            }
+
+            // Sol
+            const floorGeometry = new THREE.PlaneGeometry(MAZE_SIZE * CELL_SIZE, MAZE_SIZE * CELL_SIZE);
+            const floorMaterial = new THREE.MeshLambertMaterial({ color: 0x222222 });
+            const floor = new THREE.Mesh(floorGeometry, floorMaterial);
+            floor.rotation.x = -Math.PI / 2;
+            floor.receiveShadow = true;
+            scene.add(floor);
+        }
+
+        function createPacman() {
+            const pacmanGeometry = new THREE.SphereGeometry(0.4, 16, 16);
+            const pacmanMaterial = new THREE.MeshLambertMaterial({ color: 0xffff00 });
+            pacman = new THREE.Mesh(pacmanGeometry, pacmanMaterial);
+            pacman.position.set(-12, 0.4, -12);
+            pacman.castShadow = true;
+            scene.add(pacman);
+        }
+
+        function createGhosts() {
+            const ghostColors = [0xff0000, 0x00ffff, 0xffc0cb, 0xffa500];
+            const ghostPositions = [
+                {x: 0, z: 0},
+                {x: 2, z: 0},
+                {x: -2, z: 0},
+                {x: 0, z: 2}
+            ];
+
+            for (let i = 0; i < 4; i++) {
+                const ghostGeometry = new THREE.CylinderGeometry(0.4, 0.4, 0.8, 8);
+                const ghostMaterial = new THREE.MeshLambertMaterial({ color: ghostColors[i] });
+                const ghost = new THREE.Mesh(ghostGeometry, ghostMaterial);
+                ghost.position.set(ghostPositions[i].x, 0.4, ghostPositions[i].z);
+                ghost.castShadow = true;
+                ghost.direction = { x: Math.random() > 0.5 ? 1 : -1, z: 0 };
+                ghost.moveTimer = 0;
+                scene.add(ghost);
+                ghosts.push(ghost);
+            }
+        }
+
+        function createDots() {
+            for (let row = 0; row < MAZE_SIZE; row++) {
+                for (let col = 0; col < MAZE_SIZE; col++) {
+                    if (mazeLayout[row][col] === 0) {
+                        const dotGeometry = new THREE.SphereGeometry(0.1, 8, 8);
+                        const dotMaterial = new THREE.MeshLambertMaterial({ color: 0xffff00 });
+                        const dot = new THREE.Mesh(dotGeometry, dotMaterial);
+                        dot.position.set(
+                            (col - MAZE_SIZE/2) * CELL_SIZE,
+                            0.1,
+                            (row - MAZE_SIZE/2) * CELL_SIZE
+                        );
+                        scene.add(dot);
+                        dots.push(dot);
+                    }
+                }
+            }
+        }
+
+        function onKeyDown(event) {
+            keys[event.key] = true;
+        }
+
+        function onKeyUp(event) {
+            keys[event.key] = false;
+        }
+
+        function movePacman() {
+            if (!gameRunning) return;
+
+            const moveSpeed = 0.1;
+            let newPosition = { x: pacman.position.x, z: pacman.position.z };
+
+            if (keys['ArrowUp']) {
+                newPosition.z -= moveSpeed;
+            }
+            if (keys['ArrowDown']) {
+                newPosition.z += moveSpeed;
+            }
+            if (keys['ArrowLeft']) {
+                newPosition.x -= moveSpeed;
+            }
+            if (keys['ArrowRight']) {
+                newPosition.x += moveSpeed;
+            }
+
+            // Vérifier les collisions avec les murs
+            if (!checkWallCollision(newPosition.x, newPosition.z)) {
+                pacman.position.x = newPosition.x;
+                pacman.position.z = newPosition.z;
+            }
+
+            // Rotation de Pac-Man selon la direction
+            if (keys['ArrowLeft']) pacman.rotation.y = Math.PI;
+            if (keys['ArrowRight']) pacman.rotation.y = 0;
+            if (keys['ArrowUp']) pacman.rotation.y = Math.PI/2;
+            if (keys['ArrowDown']) pacman.rotation.y = -Math.PI/2;
+        }
+
+        function checkWallCollision(x, z) {
+            const col = Math.round((x + MAZE_SIZE * CELL_SIZE / 2) / CELL_SIZE);
+            const row = Math.round((z + MAZE_SIZE * CELL_SIZE / 2) / CELL_SIZE);
+            
+            if (row < 0 || row >= MAZE_SIZE || col < 0 || col >= MAZE_SIZE) return true;
+            return mazeLayout[row][col] === 1;
+        }
+
+        function moveGhosts() {
+            if (!gameRunning) return;
+
+            ghosts.forEach(ghost => {
+                ghost.moveTimer++;
+                
+                if (ghost.moveTimer > 30) { // Changer de direction parfois
+                    if (Math.random() < 0.3) {
+                        const directions = [{x:1,z:0}, {x:-1,z:0}, {x:0,z:1}, {x:0,z:-1}];
+                        ghost.direction = directions[Math.floor(Math.random() * directions.length)];
+                    }
+                    ghost.moveTimer = 0;
+                }
+
+                const newX = ghost.position.x + ghost.direction.x * 0.05;
+                const newZ = ghost.position.z + ghost.direction.z * 0.05;
+
+                if (!checkWallCollision(newX, newZ)) {
+                    ghost.position.x = newX;
+                    ghost.position.z = newZ;
+                } else {
+                    // Changer de direction si collision
+                    const directions = [{x:1,z:0}, {x:-1,z:0}, {x:0,z:1}, {x:0,z:-1}];
+                    ghost.direction = directions[Math.floor(Math.random() * directions.length)];
+                }
+            });
+        }
+
+        function checkCollisions() {
+            if (!gameRunning) return;
+
+            // Collision avec les points
+            for (let i = dots.length - 1; i >= 0; i--) {
+                const dot = dots[i];
+                const distance = pacman.position.distanceTo(dot.position);
+                if (distance < 0.5) {
+                    scene.remove(dot);
+                    dots.splice(i, 1);
+                    score += 10;
+                    document.getElementById('score').textContent = score;
+                    
+                    // Victoire si tous les points sont collectés
+                    if (dots.length === 0) {
+                        gameOver(true);
+                    }
+                }
+            }
+
+            // Collision avec les fantômes
+            ghosts.forEach(ghost => {
+                const distance = pacman.position.distanceTo(ghost.position);
+                if (distance < 0.8) {
+                    lives--;
+                    document.getElementById('lives').textContent = lives;
+                    
+                    if (lives <= 0) {
+                        gameOver(false);
+                    } else {
+                        // Repositionner Pac-Man
+                        pacman.position.set(-12, 0.4, -12);
+                    }
+                }
+            });
+        }
+
+        function gameOver(won) {
+            gameRunning = false;
+            document.getElementById('finalScore').textContent = score;
+            document.getElementById('gameOverText').textContent = won ? 'Victoire!' : 'Game Over!';
+            document.getElementById('gameOver').style.display = 'block';
+        }
+
+        function restartGame() {
+            // Réinitialiser les variables
+            score = 0;
+            lives = 3;
+            gameRunning = true;
+            
+            // Nettoyer la scène
+            scene.clear();
+            dots = [];
+            ghosts = [];
+            maze = [];
+            
+            // Recréer le jeu
+            const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
+            scene.add(ambientLight);
+            
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(10, 10, 5);
+            directionalLight.castShadow = true;
+            scene.add(directionalLight);
+
+            createMaze();
+            createPacman();
+            createGhosts();
+            createDots();
+            
+            document.getElementById('score').textContent = score;
+            document.getElementById('lives').textContent = lives;
+            document.getElementById('gameOver').style.display = 'none';
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            movePacman();
+            moveGhosts();
+            checkCollisions();
+            
+            // Animation de rotation des points
+            dots.forEach(dot => {
+                dot.rotation.y += 0.05;
+            });
+            
+            renderer.render(scene, camera);
+        }
+
+        // Redimensionnement de la fenêtre
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // Démarrer le jeu
+        init();
+    </script>
+</body>
+</html>

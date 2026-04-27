@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Avoidance Game</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #f0f0f0; /* Light background */
+            font-family: Arial, sans-serif;
+        }
+        canvas {
+            display: block;
+            background-color: #ffffff; /* Canvas background */
+        }
+        #instructions {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            z-index: 10;
+            width: 80%;
+        }
+        #instructions.hidden {
+            display: none;
+        }
+        button {
+            margin: 10px;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+<div id="instructions">
+    <h1>Game Rules</h1>
+    <p>Avoid the enemies for 20 seconds to win a turn of pursuit.</p>
+    <p>If you are caught, it's your turn to chase the enemies.</p>
+    <p>Use the arrow keys to move.</p>
+    <button onclick="startGame()">Play</button>
+    <button onclick="restartGame()">Restart</button>
+</div>
+<canvas id="gameCanvas"></canvas>
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    let player, enemies, isPlayerTurn, timer, gameInterval, isPaused;
+
+    function initializeGame() {
+        player = {
+            x: canvas.width / 2 - 25,
+            y: canvas.height - 75,
+            width: 50,
+            height: 50,
+            color: 'blue',
+            speed: 10
+        };
+
+        enemies = [];
+        for (let i = 0; i < 3; i++) {
+            enemies.push({
+                x: Math.random() * (canvas.width - 50),
+                y: Math.random() * (canvas.height - 50),
+                width: 50,
+                height: 50,
+                color: 'red',
+                speed: 3
+            });
+        }
+
+        isPlayerTurn = true;
+        timer = 20; // Reduced timer to 20 seconds
+        isPaused = false;
+    }
+
+    function drawPlayer() {
+        ctx.fillStyle = player.color;
+        ctx.fillRect(player.x, player.y, player.width, player.height);
+    }
+
+    function drawEnemies() {
+        enemies.forEach(enemy => {
+            ctx.fillStyle = enemy.color;
+            ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
+        });
+    }
+
+    function movePlayer() {
+        if (!isPaused) {
+            if (keys['ArrowLeft'] && player.x > 0) {
+                player.x -= player.speed;
+            }
+            if (keys['ArrowRight'] && player.x + player.width < canvas.width) {
+                player.x += player.speed;
+            }
+            if (keys['ArrowUp'] && player.y > 0) {
+                player.y -= player.speed;
+            }
+            if (keys['ArrowDown'] && player.y + player.height < canvas.height) {
+                player.y += player.speed;
+            }
+        }
+    }
+
+    function moveEnemies() {
+        if (!isPaused) {
+            enemies.forEach(enemy => {
+                if (isPlayerTurn) {
+                    // Intelligence to chase the player
+                    if (enemy.x < player.x) enemy.x += enemy.speed;
+                    if (enemy.x > player.x) enemy.x -= enemy.speed;
+                    if (enemy.y < player.y) enemy.y += enemy.speed;
+                    if (enemy.y > player.y) enemy.y -= enemy.speed;
+                } else {
+                    // Random movement for the enemy when being chased
+                    enemy.x += (Math.random() - 0.5) * enemy.speed;
+                    enemy.y += (Math.random() - 0.5) * enemy.speed;
+
+                    // Prevent the enemy from leaving the screen
+                   
+                    if (enemy.x < 0) enemy.x = 0;
+                    if (enemy.x + enemy.width > canvas.width) enemy.x = canvas.width - enemy.width;
+                    if (enemy.y < 0) enemy.y = 0;
+                    if (enemy.y + enemy.height > canvas.height) enemy.y = canvas.height - enemy.height;
+                }
+            });
+        }
+    }
+
+    function checkCollision() {
+        return enemies.some(enemy => (
+            player.x < enemy.x + enemy.width &&
+            player.x + player.width > enemy.x &&
+            player.y < enemy.y + enemy.height &&
+            player.y + player.height > enemy.y
+        ));
+    }
+
+    function updateTimer() {
+        if (!isPaused && isPlayerTurn) {
+            timer--;
+            if (timer <= 0) {
+                clearInterval(gameInterval);
+                alert("Time's up! It's now your turn to chase!");
+                isPlayerTurn = false;
+                timer = 20; // Reset timer for the next round
+                gameInterval = setInterval(updateTimer, 1000);
+            }
+        }
+    }
+
+    function gameLoop() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        drawPlayer();
+        drawEnemies();
+
+        movePlayer();
+        moveEnemies();
+
+        if (checkCollision()) {
+            if (isPlayerTurn) {
+                alert("You've been caught! It's now your turn to chase!");
+                isPlayerTurn = false;
+                timer = 20; // Reset timer for the next round
+            } else {
+                alert("You caught the enemies! You win!");
+                restartGame(); // Restart the game
+            }
+        }
+
+        ctx.fillStyle = "black";
+        ctx.font = "20px Arial";
+        ctx.fillText(`Time remaining: ${timer}s`, 10, 30);
+
+        requestAnimationFrame(gameLoop);
+    }
+
+    function startGame() {
+        initializeGame();
+        document.getElementById('instructions').classList.add('hidden');
+        gameLoop();
+        gameInterval = setInterval(updateTimer, 1000);
+    }
+
+    function restartGame() {
+        clearInterval(gameInterval);
+        initializeGame();
+        document.getElementById('instructions').classList.remove('hidden');
+    }
+
+    function togglePause() {
+        isPaused = !isPaused;
+        if (isPaused) {
+            alert("The game is paused. Press OK to resume.");
+        }
+    }
+
+    const keys = {};
+    document.addEventListener('keydown', (e) => keys[e.key] = true);
+    document.addEventListener('keyup', (e) => keys[e.key] = false);
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'p') togglePause();
+    });
+</script>
+</body>
+</html>

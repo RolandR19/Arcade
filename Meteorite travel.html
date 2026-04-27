@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voyage en Capsule 3D</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Inter', sans-serif;
+            background-color: #1f2937;
+            touch-action: none; /* Disable touch events on the whole page */
+        }
+        canvas {
+            display: block;
+        }
+        .ui-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            padding: 2rem;
+            color: white;
+            z-index: 10;
+            pointer-events: none;
+            text-align: center;
+        }
+        .game-title {
+            font-size: 2.5rem;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+            margin-bottom: 1rem;
+        }
+        .instructions {
+            font-size: 1.25rem;
+            opacity: 0.8;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .game-over-screen {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0.7);
+            border-radius: 1rem;
+            padding: 3rem 4rem;
+            text-align: center;
+            pointer-events: all;
+            box-shadow: 0 0 20px rgba(255, 0, 0, 0.5);
+            transition: opacity 0.5s ease-in-out;
+            color: white;
+        }
+        .game-over-screen h2 {
+            font-size: 3rem;
+            font-weight: bold;
+            color: #ef4444;
+            margin-bottom: 1rem;
+        }
+        .game-over-screen p {
+            font-size: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        .restart-button {
+            background-color: #ef4444;
+            color: white;
+            padding: 1rem 2rem;
+            border-radius: 9999px;
+            font-size: 1.25rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        .restart-button:hover {
+            background-color: #dc2626;
+            transform: translateY(-2px);
+        }
+        .score-display {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            background-color: rgba(0, 0, 0, 0.5);
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="ui-container">
+        <div class="game-title">Voyage en Capsule 3D</div>
+        <div class="instructions">
+            Utilisez les touches ZQSD ou les flèches directionnelles pour vous déplacer. Appuyez sur Espace pour tirer des missiles !
+        </div>
+    </div>
+    
+    <div id="scoreDisplay" class="score-display">Score: 0</div>
+    
+    <div id="gameOverScreen" class="game-over-screen hidden">
+        <h2>Game Over</h2>
+        <p>Tu as percuté un météore !</p>
+        <p id="finalScore"></p>
+        <button id="restartButton" class="restart-button">Recommencer</button>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+        window.onload = function() {
+            // Configuration de la scène
+            const scene = new THREE.Scene();
+            scene.fog = new THREE.Fog(0x1f2937, 100, 1000);
+
+            // Configuration de la caméra
+            const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+
+            // Configuration du rendu
+            const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('gameCanvas'), antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+
+            // Éclairage
+            const ambientLight = new THREE.AmbientLight(0x404040, 5);
+            scene.add(ambientLight);
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+            directionalLight.position.set(0, 1, 0);
+            scene.add(directionalLight);
+
+            // Création de la capsule (le joueur)
+            const capsuleGeometry = new THREE.IcosahedronGeometry(1.5, 0);
+            const capsuleMaterial = new THREE.MeshPhongMaterial({ color: 0x8a2be2, shininess: 50 });
+            const capsule = new THREE.Mesh(capsuleGeometry, capsuleMaterial);
+            scene.add(capsule);
+
+            // La caméra suit le joueur
+            camera.position.z = 10;
+            camera.position.y = 5;
+            camera.lookAt(capsule.position);
+
+            // Création des météores
+            const meteorites = [];
+            function createMeteorite() {
+                const meteoriteGeometry = new THREE.IcosahedronGeometry(Math.random() * 2 + 0.5, 0);
+                const meteoriteMaterial = new THREE.MeshPhongMaterial({ color: 0x555555, shininess: 10 });
+                const meteorite = new THREE.Mesh(meteoriteGeometry, meteoriteMaterial);
+                
+                // Positionner les météores loin devant la capsule
+                meteorite.position.x = (Math.random() - 0.5) * 200 + capsule.position.x;
+                meteorite.position.y = (Math.random() - 0.5) * 100 + capsule.position.y;
+                meteorite.position.z = capsule.position.z - (Math.random() * 300 + 100);
+                
+                // Assigner une couleur aléatoire
+                const colors = [0x78564a, 0x4a4a4a, 0x6b4226, 0x4d3926];
+                meteorite.material.color.setHex(colors[Math.floor(Math.random() * colors.length)]);
+
+                scene.add(meteorite);
+                meteorites.push(meteorite);
+            }
+
+            // Génération de météores initiaux
+            for (let i = 0; i < 50; i++) {
+                createMeteorite();
+            }
+
+            // Création des missiles
+            const missiles = [];
+            const missileGeometry = new THREE.CylinderGeometry(0.1, 0.1, 2, 8);
+            const missileMaterial = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+
+            function createMissile() {
+                const missile = new THREE.Mesh(missileGeometry, missileMaterial);
+                missile.position.copy(capsule.position);
+                missile.position.y += 1;
+                missile.rotation.x = Math.PI / 2; // Orienter le missile vers l'avant
+                scene.add(missile);
+                missiles.push(missile);
+            }
+
+            // Variables de contrôle du clavier
+            const keys = {};
+            document.addEventListener('keydown', (event) => {
+                keys[event.key.toLowerCase()] = true;
+                if (event.key === ' ') {
+                    createMissile();
+                }
+            });
+            document.addEventListener('keyup', (event) => {
+                keys[event.key.toLowerCase()] = false;
+            });
+
+            // Variables de jeu
+            let gameOver = false;
+            let score = 0;
+            const scoreDisplay = document.getElementById('scoreDisplay');
+            const gameOverScreen = document.getElementById('gameOverScreen');
+            const finalScoreDisplay = document.getElementById('finalScore');
+            const restartButton = document.getElementById('restartButton');
+
+            // Boucle de jeu
+            function animate() {
+                if (gameOver) return;
+
+                requestAnimationFrame(animate);
+
+                // Mouvement de la capsule par le clavier
+                const moveSpeed = 0.5;
+                if (keys['z'] || keys['w'] || keys['arrowup']) {
+                    capsule.position.z -= moveSpeed;
+                }
+                if (keys['s'] || keys['arrowdown']) {
+                    capsule.position.z += moveSpeed;
+                }
+                if (keys['q'] || keys['a'] || keys['arrowleft']) {
+                    capsule.position.x -= moveSpeed;
+                }
+                if (keys['d'] || keys['arrowright']) {
+                    capsule.position.x += moveSpeed;
+                }
+
+                // Faire avancer le jeu
+                const gameSpeed = 0.5;
+                capsule.position.z -= gameSpeed;
+
+                // Mettre à jour la position de la caméra
+                camera.position.x = capsule.position.x;
+                camera.position.y = capsule.position.y + 5;
+                camera.position.z = capsule.position.z + 10;
+                camera.lookAt(capsule.position);
+
+                // Mettre à jour les missiles
+                const missileSpeed = 2;
+                // Itérer à l'envers pour éviter les problèmes d'index lors de la suppression
+                for (let i = missiles.length - 1; i >= 0; i--) {
+                    const missile = missiles[i];
+                    missile.position.z -= missileSpeed;
+
+                    // Détection de collision missile-météorite
+                    for (let j = meteorites.length - 1; j >= 0; j--) {
+                        const meteorite = meteorites[j];
+                        // Vérifier si les objets existent encore
+                        if (missile.parent && meteorite.parent) {
+                            const distance = missile.position.distanceTo(meteorite.position);
+                            if (distance < 2) {
+                                // Collision ! Détruire les deux objets
+                                scene.remove(missile);
+                                missiles.splice(i, 1);
+                                
+                                scene.remove(meteorite);
+                                meteorites.splice(j, 1);
+                                
+                                score += 100; // Augmenter le score pour la destruction
+                                break; // Sortir de la boucle interne car le missile est détruit
+                            }
+                        }
+                    }
+
+                    // Supprimer les missiles passés s'ils existent encore
+                    if (missile.parent) {
+                        if (missile.position.z < capsule.position.z - 50) {
+                            scene.remove(missile);
+                            missiles.splice(i, 1);
+                        }
+                    }
+                }
+
+                // Mettre à jour les météores et la détection de collision
+                // Itérer à l'envers pour les météores aussi, pour éviter les bugs
+                for (let i = meteorites.length - 1; i >= 0; i--) {
+                    const meteorite = meteorites[i];
+                    // Si le météore a déjà été retiré par un missile, passer
+                    if (!meteorite.parent) continue;
+
+                    // Détection de collision capsule-météorite
+                    const distance = capsule.position.distanceTo(meteorite.position);
+                    if (distance < 2) {
+                        gameOver = true;
+                        finalScoreDisplay.textContent = `Ton score final est : ${score}`;
+                        gameOverScreen.classList.remove('hidden');
+                        break;
+                    }
+
+                    // Supprimer les météores passés pour optimiser
+                    if (meteorite.position.z > capsule.position.z + 20) {
+                        scene.remove(meteorite);
+                        meteorites.splice(i, 1);
+                    }
+                }
+
+                // Générer de nouveaux météores
+                if (Math.random() < 0.2) {
+                    createMeteorite();
+                }
+
+                // Mettre à jour le score
+                score += 1;
+                scoreDisplay.textContent = `Score: ${score}`;
+
+                renderer.render(scene, camera);
+            }
+
+            // Gestion du redimensionnement de la fenêtre
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+
+            // Bouton de redémarrage
+            restartButton.addEventListener('click', () => {
+                location.reload();
+            });
+
+            animate();
+        };
+    </script>
+</body>
+</html>

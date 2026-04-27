@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Games on Newton's Laws</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f9;
+        }
+        header {
+            background-color: #2c3e50;
+            color: white;
+            text-align: center;
+            padding: 1em;
+        }
+        .container {
+            padding: 20px;
+        }
+        .lesson {
+            background-color: white;
+            margin: 20px auto;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        h2 {
+            color: #34495e;
+        }
+        p {
+            line-height: 1.6;
+        }
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        canvas {
+            display: block;
+            margin: 20px auto;
+            background-color: #ecf0f1;
+            border: 1px solid #bdc3c7;
+        }
+        .result {
+            margin-top: 20px;
+            font-weight: bold;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Interactive Games on Newton's Laws</h1>
+    </header>
+    <div class="container">
+        <div class="lesson">
+            <h2>Select a Law to Play</h2>
+            <button onclick="startGame(1)">Game on the First Law (Inertia)</button>
+            <button onclick="startGame(2)">Game on the Second Law (F = ma)</button>
+            <button onclick="startGame(3)">Game on the Third Law (Action and Reaction)</button>
+        </div>
+
+        <div id="gameArea"></div>
+    </div>
+
+    <script>
+        function startGame(law) {
+            const gameArea = document.getElementById('gameArea');
+            gameArea.innerHTML = '';
+
+            if (law === 1) {
+                // New Game for the First Law: Push the Box
+                gameArea.innerHTML = `
+                    <h2>Game on the First Law (Inertia)</h2>
+                    <p>Push the box by clicking on it. The harder you click, the farther it moves!</p>
+                    <canvas id="gameCanvas1" width="400" height="200"></canvas>
+                    <div id="result1" class="result"></div>
+                `;
+                firstLawGame();
+            } else if (law === 2) {
+                // Game on the Second Law: Apply Force to Move an Object
+                gameArea.innerHTML = `
+                    <h2>Game on the Second Law (F = ma)</h2>
+                    <p>Use arrow keys to apply force and move the box.</p>
+                    <canvas id="gameCanvas2" width="400" height="200"></canvas>
+                    <div id="result2" class="result"></div>
+                `;
+                secondLawGame();
+            } else if (law === 3) {
+                // Game on the Third Law: Action and Reaction
+                gameArea.innerHTML = `
+                    <h2>Game on the Third Law (Action and Reaction)</h2>
+                    <p>Click to launch balls that bounce due to action and reaction.</p>
+                    <canvas id="gameCanvas3" width="400" height="400"></canvas>
+                    <div id="result3" class="result"></div>
+                `;
+                thirdLawGame();
+            }
+        }
+
+        function firstLawGame() {
+            const canvas = document.getElementById('gameCanvas1');
+            const ctx = canvas.getContext('2d');
+            let boxX = 180;
+            let velocity = 0;
+
+            function drawBox() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = 'orange';
+                ctx.fillRect(boxX, 150, 40, 40);
+
+                boxX += velocity;
+                if (velocity > 0) velocity -= 0.1; // Friction to slow down
+                if (velocity < 0) velocity = 0;
+            }
+
+            canvas.addEventListener('click', (e) => {
+                const rect = canvas.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left;
+                const pushStrength = Math.abs(mouseX - boxX) / 10; // Strength based on click distance
+                velocity += pushStrength;
+            });
+
+            setInterval(drawBox, 30);
+        }
+
+        function secondLawGame() {
+            const canvas = document.getElementById('gameCanvas2');
+            const ctx = canvas.getContext('2d');
+            let boxX = 180;
+            let velocity = 0;
+            let acceleration = 0;
+
+            function drawBox() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = 'blue';
+                ctx.fillRect(boxX, 150, 40, 40);
+
+                boxX += velocity;
+                velocity += acceleration;
+
+                if (boxX < 0 || boxX > 360) {
+                    velocity = 0;
+                    acceleration = 0;
+                }
+            }
+
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'ArrowRight') {
+                    acceleration = 0.1;
+                } else if (e.key === 'ArrowLeft') {
+                    acceleration = -0.1;
+                }
+            });
+
+            document.addEventListener('keyup', () => {
+                acceleration = 0;
+            });
+
+            setInterval(drawBox, 30);
+        }
+
+        function thirdLawGame() {
+            const canvas = document.getElementById('gameCanvas3');
+            const ctx = canvas.getContext('2d');
+            const balls = [];
+
+            canvas.addEventListener('click', (e) => {
+                const rect = canvas.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+
+                balls.push({ x, y, vx: Math.random() * 4 - 2, vy: Math.random() * -4 });
+            });
+
+            function updateBalls() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                for (let i = 0; i < balls.length; i++) {
+                    const ball = balls[i];
+                    ball.x += ball.vx;
+                    ball.y += ball.vy;
+                    ball.vy += 0.1; // Gravity
+
+                    if (ball.x < 10 || ball.x > 390) ball.vx *= -1;
+                    if (ball.y < 10 || ball.y > 390) ball.vy *= -1;
+
+                    ctx.beginPath();
+                    ctx.arc(ball.x, ball.y, 10, 0, Math.PI * 2);
+                    ctx.fillStyle = 'green';
+                    ctx.fill();
+                    ctx.closePath();
+                }
+            }
+
+            setInterval(updateBalls, 30);
+        }
+    </script>
+</body>
+</html>

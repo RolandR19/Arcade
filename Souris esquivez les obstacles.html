@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jeu de Souris - Esquivez les Obstacles</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+        
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #1a1a1a;
+            font-family: 'Press Start 2P', cursive;
+            color: white;
+            flex-direction: column;
+        }
+        canvas {
+            background-color: #000;
+            border: 4px solid #00ff00;
+            border-radius: 8px;
+            box-shadow: 0 0 20px #00ff00;
+        }
+        h1 {
+            color: #00ff00;
+            text-shadow: 3px 3px #ff00ff;
+        }
+    </style>
+</head>
+<body>
+    <h1>ESQUIVEZ-LES !</h1>
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // --- Paramètres du jeu ---
+        canvas.width = 640;
+        canvas.height = 480;
+
+        // Joueur
+        const joueur = {
+            x: canvas.width / 2,
+            y: canvas.height - 50,
+            width: 30,
+            height: 30,
+            color: '#00ff00'
+        };
+
+        // Obstacles
+        let obstacles = [];
+        const tailleObstacle = 40;
+        let vitesseObstacle = 4;
+        const frequenceApparitionObstacle = 40; // Plus bas = plus fréquent
+
+        // Variables de jeu
+        let score = 0;
+        let gameOver = false;
+        let compteurFrame = 0;
+
+        function initialiserPartie() {
+            obstacles = [];
+            score = 0;
+            vitesseObstacle = 4;
+            compteurFrame = 0;
+            joueur.x = canvas.width / 2;
+            gameOver = false;
+            gameLoop(); // On relance la boucle de jeu
+        }
+
+        // --- Contrôle à la souris ---
+        canvas.addEventListener('mousemove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            joueur.x = e.clientX - rect.left - joueur.width / 2;
+
+            // Limiter le joueur à l'intérieur du canvas
+            if (joueur.x < 0) joueur.x = 0;
+            if (joueur.x + joueur.width > canvas.width) joueur.x = canvas.width - joueur.width;
+        });
+        
+        // --- Clic pour rejouer ---
+        canvas.addEventListener('click', () => {
+            if (gameOver) {
+                initialiserPartie();
+            }
+        });
+
+
+        function dessiner() {
+            // Effacer le canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Dessiner le joueur
+            ctx.fillStyle = joueur.color;
+            ctx.shadowColor = '#00ff00';
+            ctx.shadowBlur = 15;
+            ctx.fillRect(joueur.x, joueur.y, joueur.width, joueur.height);
+            ctx.shadowBlur = 0; // Réinitialiser l'ombre
+
+            // Dessiner les obstacles
+            ctx.fillStyle = '#ff00ff';
+            for (const obstacle of obstacles) {
+                ctx.shadowColor = '#ff00ff';
+                ctx.shadowBlur = 15;
+                ctx.fillRect(obstacle.x, obstacle.y, obstacle.width, obstacle.height);
+            }
+            ctx.shadowBlur = 0;
+
+            // Afficher le score
+            ctx.fillStyle = 'white';
+            ctx.font = '30px "Press Start 2P"';
+            ctx.fillText(`Score: ${score}`, 20, 40);
+
+            // Afficher l'écran de fin
+            if (gameOver) {
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                ctx.fillStyle = '#00ff00';
+                ctx.font = '50px "Press Start 2P"';
+                ctx.textAlign = 'center';
+                ctx.fillText('GAME OVER', canvas.width / 2, canvas.height / 2 - 40);
+                
+                ctx.fillStyle = 'white';
+                ctx.font = '20px "Press Start 2P"';
+                ctx.fillText(`Score final: ${score}`, canvas.width / 2, canvas.height / 2 + 20);
+                
+                ctx.font = '16px "Press Start 2P"';
+                ctx.fillText('Cliquez pour rejouer', canvas.width / 2, canvas.height / 2 + 70);
+                ctx.textAlign = 'left';
+            }
+        }
+
+        function mettreAJour() {
+            if (gameOver) return;
+
+            compteurFrame++;
+
+            // Apparition de nouveaux obstacles
+            if (compteurFrame % frequenceApparitionObstacle === 0) {
+                const pos_x = Math.random() * (canvas.width - tailleObstacle);
+                obstacles.push({
+                    x: pos_x,
+                    y: -tailleObstacle,
+                    width: tailleObstacle,
+                    height: tailleObstacle
+                });
+            }
+
+            // Mouvement des obstacles et détection de collision
+            for (let i = obstacles.length - 1; i >= 0; i--) {
+                const obstacle = obstacles[i];
+                obstacle.y += vitesseObstacle;
+
+                // Collision
+                if (
+                    joueur.x < obstacle.x + obstacle.width &&
+                    joueur.x + joueur.width > obstacle.x &&
+                    joueur.y < obstacle.y + obstacle.height &&
+                    joueur.y + joueur.height > obstacle.y
+                ) {
+                    gameOver = true;
+                }
+
+                // Si l'obstacle sort de l'écran
+                if (obstacle.y > canvas.height) {
+                    obstacles.splice(i, 1);
+                    score++;
+                    // Augmenter la difficulté
+                    if (score % 5 === 0) {
+                        vitesseObstacle += 0.5;
+                    }
+                }
+            }
+        }
+
+        function gameLoop() {
+            mettreAJour();
+            dessiner();
+            if (!gameOver) {
+                requestAnimationFrame(gameLoop);
+            }
+        }
+
+        // Démarrer le jeu
+        initialiserPartie();
+    </script>
+</body>
+</html>
